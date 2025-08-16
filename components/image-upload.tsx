@@ -2,12 +2,11 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import { Upload, X, ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { uploadImage, type UploadResult } from "@/lib/storage"
-import { supabase } from "@/lib/supabase/client"
 
 interface ImageUploadProps {
   label: string
@@ -27,27 +26,11 @@ export function ImageUpload({
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(currentImage || null)
   const [error, setError] = useState<string | null>(null)
-  const [user, setUser] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-    }
-    checkUser()
-  }, [])
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-
-    if (!user) {
-      setError("You must be logged in to upload images")
-      return
-    }
 
     setError(null)
     setUploading(true)
@@ -104,13 +87,12 @@ export function ImageUpload({
                 type="button"
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || !user}
+                disabled={uploading}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                {uploading ? "Uploading..." : !user ? "Login to Upload" : "Upload Image"}
+                {uploading ? "Uploading..." : "Upload Image"}
               </Button>
               <p className="text-sm text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
-              {!user && <p className="text-sm text-destructive">You must be logged in to upload images</p>}
             </div>
           </div>
         )}

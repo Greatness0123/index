@@ -225,17 +225,24 @@ export async function submitComment(toolId: string, content: string, rating: num
       .from("comments")
       .insert({
         tool_id: toolId,
-        user_id: user.id, // Include user_id from authenticated session
+        user_id: user.id,
         content: content.trim(),
         rating,
-        is_approved: true, // Auto-approve for now, you can add moderation later
+        is_approved: true,
       })
-      .select()
+      .select("id")
       .single()
 
     if (error) {
       console.error("Error submitting comment:", error)
       return { error: "Failed to submit comment" }
+    }
+
+    try {
+      await updateToolStatsSimple(toolId)
+    } catch (statsError) {
+      console.error("Error updating tool statistics:", statsError)
+      // Don't fail the comment submission if stats update fails
     }
 
     revalidatePath(`/tools/${toolId}`)
@@ -357,7 +364,7 @@ export async function trackToolView(toolId: string, userId?: string) {
 export async function trackToolClick(toolId: string) {
   try {
     const { error } = await supabase.rpc("increment_click_count", {
-      tool_id: toolId,
+      target_tool_id: toolId,
     })
 
     if (error) throw error
@@ -369,48 +376,59 @@ export async function trackToolClick(toolId: string) {
   }
 }
 
-async function updateToolStats(toolId: string) {
+export async function deleteTool(toolId: string) {
   try {
-    // Get counts
-    const [{ count: commentCount }, { count: favoriteCount }] = await Promise.all([
-      supabase
-        .from("comments")
-        .select("*", { count: "exact", head: true })
-        .eq("tool_id", toolId)
-        .eq("is_approved", true),
-      supabase.from("user_favorites").select("*", { count: "exact", head: true }).eq("tool_id", toolId),
+    const cookieStore = cookies()
+    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser()
+
+    if (authError || !user) {
+      return { error: "You must be logged in to delete tools" }
+    }
+
+    // Check if user owns this tool
+    const { data: tool, error: toolError } = await supabase
+      .from("tools")
+      .select("id, name, submitted_by")
+      .eq("id", toolId)
+      .single()
+
+    if (toolError || !tool) {
+      return { error: "Tool not found" }
+    }
+
+    if (tool.submitted_by !== user.id) {
+      return { error: "You can only delete tools you submitted" }
+    }
+
+    // Delete related data first (foreign key constraints)
+    await Promise.all([
+      supabase.from("tool_screenshots").delete().eq("tool_id", toolId),
+      supabase.from("tool_tags").delete().eq("tool_id", toolId),
+      supabase.from("comments").delete().eq("tool_id", toolId),
+      supabase.from("user_favorites").delete().eq("tool_id", toolId),
+      supabase.from("tool_views").delete().eq("tool_id", toolId),
+      supabase.from("tool_clicks").delete().eq("tool_id", toolId),
+      supabase.from("tool_stats").delete().eq("tool_id", toolId),
     ])
 
-    // Update or insert tool stats
-    await supabase.from("tool_stats").upsert({
-      tool_id: toolId,
-      comment_count: commentCount || 0,
-      favorite_count: favoriteCount || 0,
-      updated_at: new Date().toISOString(),
-    })
+    // Delete the tool
+    const { error: deleteError } = await supabase.from("tools").delete().eq("id", toolId)
 
-    // Update tool rating
-    const { data: avgRating } = await supabase
-      .from("comments")
-      .select("rating")
-      .eq("tool_id", toolId)
-      .eq("is_approved", true)
-      .not("rating", "is", null)
-
-    if (avgRating && avgRating.length > 0) {
-      const ratings = avgRating.map((c) => c.rating).filter((r) => r !== null)
-      const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
-
-      await supabase
-        .from("tools")
-        .update({
-          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
-          rating_count: ratings.length,
-        })
-        .eq("id", toolId)
+    if (deleteError) {
+      console.error("Error deleting tool:", deleteError)
+      return { error: "Failed to delete tool" }
     }
+
+    revalidatePath("/")
+    return { success: "Tool deleted successfully" }
   } catch (error) {
-    console.error("Error updating tool stats:", error)
+    console.error("Error deleting tool:", error)
+    return { error: "An unexpected error occurred" }
   }
 }
 
@@ -683,58 +701,68 @@ export async function likeCommunityComment(commentId: string) {
   }
 }
 
-export async function deleteTool(toolId: string) {
+async function updateToolStatsSimple(toolId: string) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    // Get comment count
+    const { count: commentCount } = await supabase
+      .from("comments")
+      .select("*", { count: "exact", head: true })
+      .eq("tool_id", toolId)
+      .eq("is_approved", true)
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser()
+    // Get favorite count
+    const { count: favoriteCount } = await supabase
+      .from("user_favorites")
+      .select("*", { count: "exact", head: true })
+      .eq("tool_id", toolId)
 
-    if (authError || !user) {
-      return { error: "You must be logged in to delete tools" }
+    // Update or insert tool stats
+    const { error: statsError } = await supabase.from("tool_stats").upsert({
+      tool_id: toolId,
+      comment_count: commentCount || 0,
+      favorite_count: favoriteCount || 0,
+      updated_at: new Date().toISOString(),
+    })
+
+    if (statsError) {
+      console.error("Error updating tool stats:", statsError)
     }
 
-    // Check if user owns this tool
-    const { data: tool, error: toolError } = await supabase
-      .from("tools")
-      .select("id, name, submitted_by")
-      .eq("id", toolId)
-      .single()
+    // Calculate and update average rating
+    const { data: ratings } = await supabase
+      .from("comments")
+      .select("rating")
+      .eq("tool_id", toolId)
+      .eq("is_approved", true)
+      .not("rating", "is", null)
 
-    if (toolError || !tool) {
-      return { error: "Tool not found" }
+    if (ratings && ratings.length > 0) {
+      const validRatings = ratings.map((r) => r.rating).filter((r) => r !== null)
+      if (validRatings.length > 0) {
+        const averageRating = validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length
+
+        const { error: toolUpdateError } = await supabase
+          .from("tools")
+          .update({
+            rating: Math.round(averageRating * 10) / 10,
+            rating_count: validRatings.length,
+          })
+          .eq("id", toolId)
+
+        if (toolUpdateError) {
+          console.error("Error updating tool rating:", toolUpdateError)
+        }
+      }
     }
-
-    if (tool.submitted_by !== user.id) {
-      return { error: "You can only delete tools you submitted" }
-    }
-
-    // Delete related data first (foreign key constraints)
-    await Promise.all([
-      supabase.from("tool_screenshots").delete().eq("tool_id", toolId),
-      supabase.from("tool_tags").delete().eq("tool_id", toolId),
-      supabase.from("comments").delete().eq("tool_id", toolId),
-      supabase.from("user_favorites").delete().eq("tool_id", toolId),
-      supabase.from("tool_views").delete().eq("tool_id", toolId),
-      supabase.from("tool_clicks").delete().eq("tool_id", toolId),
-      supabase.from("tool_stats").delete().eq("tool_id", toolId),
-    ])
-
-    // Delete the tool
-    const { error: deleteError } = await supabase.from("tools").delete().eq("id", toolId)
-
-    if (deleteError) {
-      console.error("Error deleting tool:", deleteError)
-      return { error: "Failed to delete tool" }
-    }
-
-    revalidatePath("/")
-    return { success: "Tool deleted successfully" }
   } catch (error) {
-    console.error("Error deleting tool:", error)
-    return { error: "An unexpected error occurred" }
+    console.error("Error updating tool stats:", error)
   }
+}
+
+async function updateToolStatsManually(toolId: string) {
+  await updateToolStatsSimple(toolId)
+}
+
+async function updateToolStats(toolId: string) {
+  await updateToolStatsSimple(toolId)
 }

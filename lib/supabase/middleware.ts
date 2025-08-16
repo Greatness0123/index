@@ -35,19 +35,19 @@ export async function updateSession(request: NextRequest) {
   // Refresh session if expired - required for Server Components
   await supabase.auth.getSession()
 
-  // Protected routes - redirect to login if not authenticated
-  const isAuthRoute =
-    request.nextUrl.pathname.startsWith("/auth/login") ||
-    request.nextUrl.pathname.startsWith("/auth/sign-up") ||
-    request.nextUrl.pathname === "/auth/callback"
+  const protectedRoutes = ["/profile"]
 
-  if (!isAuthRoute) {
+  const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
+
+  // Only redirect to login for protected routes
+  if (isProtectedRoute) {
     const {
       data: { session },
     } = await supabase.auth.getSession()
 
     if (!session) {
       const redirectUrl = new URL("/auth/login", request.url)
+      redirectUrl.searchParams.set("redirectTo", request.nextUrl.pathname)
       return NextResponse.redirect(redirectUrl)
     }
   }

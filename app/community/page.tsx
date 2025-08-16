@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Users, Filter, TrendingUp, Clock } from "lucide-react"
+import { Users, Filter, TrendingUp, Clock, Home, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { CommunityPostCard } from "@/components/community-post-card"
 import { CreatePostDialog } from "@/components/create-post-dialog"
 import { createClient } from "@/lib/supabase/client"
+import Link from "next/link"
 
 interface CommunityPost {
   id: string
@@ -95,6 +96,19 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="border-b border-border bg-card/50">
+        <div className="container mx-auto px-4 py-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <Home className="h-4 w-4" />
+            Back to Home
+          </Link>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 border-b border-border">
         <div className="container mx-auto px-4 py-12">
@@ -120,107 +134,112 @@ export default function CommunityPage() {
       </section>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <aside className="lg:w-64 space-y-6">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filters
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Sort by</label>
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="recent">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Most Recent
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="popular">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="h-4 w-4" />
-                          Most Popular
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="discussed">Most Discussed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <div className="mb-8 space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Filters</h2>
+          </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Post Type</label>
-                  <div className="space-y-2">
-                    {postTypes.map((type) => (
-                      <button
-                        key={type.value}
-                        onClick={() => setFilterType(type.value)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between ${
-                          filterType === type.value
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        <span>{type.label}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {type.count}
-                        </Badge>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Sort by</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Most Recent
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="popular">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      Most Popular
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="discussed">Most Discussed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="font-semibold mb-3">Community Guidelines</h3>
-              <ul className="text-sm text-muted-foreground space-y-2">
-                <li>• Be respectful and constructive</li>
-                <li>• Share relevant tools and resources</li>
-                <li>• Help others discover great tools</li>
-                <li>• Keep discussions on-topic</li>
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">Post Type</label>
+              <div className="flex flex-wrap gap-2">
+                {postTypes.map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => setFilterType(type.value)}
+                    className={`px-4 py-2 rounded-full text-sm transition-colors flex items-center gap-2 ${
+                      filterType === type.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span>{type.label}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {type.count}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <main>
+          {loading ? (
+            <div className="space-y-6">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="bg-card border border-border rounded-lg p-6 animate-pulse">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-4 w-20 bg-muted rounded" />
+                    <div className="h-4 w-32 bg-muted rounded" />
+                  </div>
+                  <div className="h-6 w-3/4 bg-muted rounded mb-3" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-muted rounded" />
+                    <div className="h-4 w-2/3 bg-muted rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : posts.length > 0 ? (
+            <div className="space-y-6">
+              {posts.map((post) => (
+                <CommunityPostCard key={post.id} post={post} isAuthenticated={!!user} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-xl font-semibold mb-2">No posts yet</h3>
+              <p className="text-muted-foreground mb-6">Be the first to start a conversation in the community!</p>
+              <CreatePostDialog />
+            </div>
+          )}
+        </main>
+
+        <div className="mt-12 pt-8 border-t border-border">
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="font-semibold mb-4 flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Community Guidelines
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+              <ul className="space-y-2">
+                <li>• Be respectful and constructive in all interactions</li>
+                <li>• Share relevant tools and helpful resources</li>
+              </ul>
+              <ul className="space-y-2">
+                <li>• Help others discover great tools and solutions</li>
+                <li>• Keep discussions on-topic and valuable</li>
               </ul>
             </div>
-          </aside>
-
-          {/* Main Content */}
-          <main className="flex-1">
-            {loading ? (
-              <div className="space-y-6">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="bg-card border border-border rounded-lg p-6 animate-pulse">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-4 w-20 bg-muted rounded" />
-                      <div className="h-4 w-32 bg-muted rounded" />
-                    </div>
-                    <div className="h-6 w-3/4 bg-muted rounded mb-3" />
-                    <div className="space-y-2">
-                      <div className="h-4 w-full bg-muted rounded" />
-                      <div className="h-4 w-2/3 bg-muted rounded" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : posts.length > 0 ? (
-              <div className="space-y-6">
-                {posts.map((post) => (
-                  <CommunityPostCard key={post.id} post={post} isAuthenticated={!!user} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-semibold mb-2">No posts yet</h3>
-                <p className="text-muted-foreground mb-6">Be the first to start a conversation in the community!</p>
-                <CreatePostDialog />
-              </div>
-            )}
-          </main>
+          </div>
         </div>
       </div>
     </div>

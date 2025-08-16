@@ -9,16 +9,6 @@ export interface UploadResult {
 // Upload image to Supabase storage
 export async function uploadImage(file: File, bucket = "tool-images"): Promise<UploadResult> {
   try {
-    // Check if user is authenticated
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return { success: false, error: "You must be logged in to upload images" }
-    }
-
     // Validate file type
     if (!file.type.startsWith("image/")) {
       return { success: false, error: "Please upload an image file" }
@@ -29,9 +19,8 @@ export async function uploadImage(file: File, bucket = "tool-images"): Promise<U
       return { success: false, error: "Image must be less than 5MB" }
     }
 
-    // Generate unique filename with user ID prefix
     const fileExt = file.name.split(".").pop()
-    const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
 
     // Upload to Supabase storage
     const { data, error } = await supabase.storage.from(bucket).upload(fileName, file, {
