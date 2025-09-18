@@ -43,23 +43,24 @@ export function Header({
   const supabase = createClient()
 
   useEffect(() => {
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
-    }
-    getUser()
+  const getUser = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    setUser(user)
+    setLoading(false)
+  }
+  getUser()
 
-   const { data: subscription } = supabase.auth.onAuthStateChange(
-    (event, session) => {
-      setUser(session?.user ?? null);
-    }
-  )
+  const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null)
+  })
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  return () => {
+    authListener.subscription.unsubscribe()
+  }
+}, [supabase.auth])
+
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
