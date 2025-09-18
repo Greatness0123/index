@@ -25,25 +25,22 @@ export function DailyFeatures() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-  const fetchDailyFeatures = async () => {
-  const { data, error } = await supabase
-    .from("tools")
+const fetchDailyFeatures = async () =>
+  { const { data: tools, error } = await supabase .from("tools")
     .select(
-      `
       id,
       name,
       description,
-      url,
-      image_url,
-      pricing,
-      rating,
-      rating_count,
-      is_featured
-    `
-    )
-    .eq("is_approved", true)
-    .gte("rating", 4.0)
-    .order("rating", { ascending: false, nullsFirst: false })
+      url, 
+      image_url, 
+      pricing, 
+      rating, 
+      rating_count, 
+      is_featured 
+    ) 
+    .eq("is_approved", true) 
+    .gte("rating", 4.0) 
+    .order("rating", { ascending: false }) 
     .limit(20)
 
     if (error) {
