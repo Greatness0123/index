@@ -23,7 +23,7 @@ export const createClient = cache(async () => {
         signUp: () =>
           Promise.resolve({ data: { user: null, session: null }, error: { message: "Supabase not configured" } }),
         signOut: () => Promise.resolve({ error: null }),
-        onAuthStateChanged: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } }, error: null }),
       },
       from: (table: string) => ({
         select: (columns?: string) => ({
