@@ -88,7 +88,8 @@ export function ToolCard({ tool }: ToolCardProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0 flex-1 flex flex-col">
+      {/* Added overflow-hidden to CardContent */}
+      <CardContent className="pt-0 flex-1 flex flex-col overflow-hidden">
         <CardDescription className="text-muted-foreground mb-4 line-clamp-3 text-sm flex-1">
           {tool.description}
         </CardDescription>
@@ -124,15 +125,22 @@ export function ToolCard({ tool }: ToolCardProps) {
             )}
           </div>
 
-          <div className="flex gap-2">
+          {/* FIX: Added flex-wrap, min-w-0 and shrink to button container and buttons */}
+          <div className="flex gap-2 flex-wrap min-w-0">
             <Link href={`/tools/${tool.id}`}>
-              <Button size="sm" variant="outline" className="text-xs bg-transparent">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs bg-transparent min-w-0 shrink"
+                style={{ maxWidth: "100%" }}
+              >
                 View Details
               </Button>
             </Link>
             <Button
               size="sm"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs min-w-0 shrink"
+              style={{ maxWidth: "100%" }}
               onClick={() => window.open(tool.url, "_blank")}
             >
               <ExternalLink className="h-3 w-3 mr-1" />
