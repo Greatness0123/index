@@ -224,7 +224,15 @@ export async function submitComment(toolId: string, content: string, rating: num
         rating,
         is_approved: true,
       })
-      .select("id")
+      .select(`
+        id,
+        content,
+        rating,
+        created_at,
+        user_id,
+        tool_id,
+        users!inner(display_name, full_name, email)
+      `)
       .single()
 
     if (error) {
@@ -721,6 +729,123 @@ export async function likeCommunityComment(commentId: string) {
   } catch (error) {
     console.error("Error liking community comment:", error)
     return { error: "Failed to like comment" }
+  }
+}
+
+export async function deleteComment(commentId: string) {
+  try {
+    const supabaseClient = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser()
+
+    if (authError || !user) {
+      return { error: "You must be logged in to delete comments" }
+    }
+
+    // Check if user owns this comment
+    const { data: comment, error: commentError } = await supabaseClient
+      .from("comments")
+      .select("id, user_id, tool_id")
+      .eq("id", commentId)
+      .single()
+
+    if (commentError || !comment) {
+      return { error: "Comment not found" }
+    }
+
+    if (comment.user_id !== user.id) {
+      return { error: "You can only delete your own comments" }
+    }
+
+    // Delete related votes first
+    await supabaseClient.from("comment_votes").delete().eq("comment_id", commentId)
+
+    // Delete the comment
+    const { error: deleteError } = await supabaseClient.from("comments").delete().eq("id", commentId)
+
+    if (deleteError) {
+      console.error("Error deleting comment:", deleteError)
+      return { error: "Failed to delete comment" }
+    }
+
+    // Update tool statistics
+    try {
+      const { error: statsError } = await supabaseClient.rpc("update_tool_statistics_safe", {
+        target_tool_id: comment.tool_id,
+      })
+
+      if (statsError) {
+        console.error("Error updating tool statistics:", statsError)
+      }
+    } catch (statsError) {
+      console.error("Error updating tool statistics:", statsError)
+    }
+
+    revalidatePath(`/tools/${comment.tool_id}`)
+    return { success: "Comment deleted successfully" }
+  } catch (error) {
+    console.error("Error deleting comment:", error)
+    return { error: "An unexpected error occurred" }
+  }
+}
+
+export async function deleteCommunityComment(commentId: string) {
+  try {
+    const supabaseClient = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser()
+
+    if (authError || !user) {
+      return { error: "You must be logged in to delete comments" }
+    }
+
+    // Check if user owns this comment
+    const { data: comment, error: commentError } = await supabaseClient
+      .from("community_comments")
+      .select("id, author_id, post_id")
+      .eq("id", commentId)
+      .single()
+
+    if (commentError || !comment) {
+      return { error: "Comment not found" }
+    }
+
+    if (comment.author_id !== user.id) {
+      return { error: "You can only delete your own comments" }
+    }
+
+    // Delete related likes first
+    await supabaseClient.from("community_comment_likes").delete().eq("comment_id", commentId)
+
+    // Delete the comment
+    const { error: deleteError } = await supabaseClient.from("community_comments").delete().eq("id", commentId)
+
+    if (deleteError) {
+      console.error("Error deleting community comment:", deleteError)
+      return { error: "Failed to delete comment" }
+    }
+
+    revalidatePath("/community")
+    return { success: "Comment deleted successfully" }
+  } catch (error) {
+    console.error("Error deleting community comment:", error)
+    return { error: "An unexpected error occurred" }
+  }
+}
+
+export async function copyCommentText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    return { success: "Comment copied to clipboard!" }
+  } catch (error) {
+    console.error("Error copying comment:", error)
+    return { error: "Failed to copy comment" }
   }
 }
 

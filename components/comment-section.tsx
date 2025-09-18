@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Star, MessageCircle, ThumbsUp, ThumbsDown, Flag } from "lucide-react"
+import { Star, MessageCircle, ThumbsUp, ThumbsDown, Flag, Trash2, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -9,7 +9,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase/client"
-import { submitComment, voteOnComment } from "@/lib/actions"
+import { submitComment, voteOnComment, deleteComment } from "@/lib/actions"
+import { toast } from "@/hooks/use-toast"
 
 interface Comment {
   id: string
@@ -18,9 +19,12 @@ interface Comment {
   created_at: string
   helpful_count: number
   total_votes: number
+  user_id: string
   user: {
+    id: string
     email: string
     full_name?: string
+    display_name?: string
   }
   user_vote?: {
     is_helpful: boolean
@@ -49,8 +53,8 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     let query = supabase
       .from("comments")
       .select(`
-        id, content, rating, created_at, helpful_count, total_votes,
-        user:users(email, full_name)
+        id, content, rating, created_at, helpful_count, total_votes, user_id,
+        users!inner(id, email, full_name, display_name)
       `)
       .eq("tool_id", toolId)
       .eq("is_approved", true)
@@ -60,9 +64,9 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
       query = supabase
         .from("comments")
         .select(`
-          id, content, rating, created_at, helpful_count, total_votes,
-          user:users(email, full_name),
-          user_vote:comment_votes!comment_votes_comment_id_fkey(is_helpful)
+          id, content, rating, created_at, helpful_count, total_votes, user_id,
+          users!inner(id, email, full_name, display_name),
+          comment_votes!left(is_helpful)
         `)
         .eq("tool_id", toolId)
         .eq("is_approved", true)
@@ -84,7 +88,13 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     const { data, error } = await query
 
     if (!error && data) {
-      setComments(data)
+      // Transform the data to match expected structure
+      const transformedComments = data.map((comment: any) => ({
+        ...comment,
+        user: comment.users,
+        user_vote: comment.comment_votes?.[0] || null,
+      }))
+      setComments(transformedComments)
     }
     setLoading(false)
   }
@@ -105,6 +115,16 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
       setNewComment("")
       setNewRating(0)
       fetchComments()
+      toast({
+        title: "Success",
+        description: "Your comment has been posted!",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to submit comment",
+        variant: "destructive",
+      })
     }
 
     setSubmitting(false)
@@ -122,6 +142,41 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     }
   }
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return
+
+    const result = await deleteComment(commentId)
+    if (result.success) {
+      fetchComments()
+      toast({
+        title: "Success",
+        description: "Comment deleted successfully",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to delete comment",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleCopyComment = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      toast({
+        title: "Copied!",
+        description: "Comment copied to clipboard",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy comment",
+        variant: "destructive",
+      })
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -133,6 +188,11 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
   const getHelpfulPercentage = (helpful: number, total: number) => {
     if (total === 0) return 0
     return Math.round((helpful / total) * 100)
+  }
+
+  const getDisplayName = (commentUser: Comment["user"]) => {
+    if (!commentUser) return "Anonymous"
+    return commentUser.display_name || commentUser.full_name || commentUser.email?.split("@")[0] || "Anonymous"
   }
 
   if (loading) {
@@ -251,14 +311,12 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
               <CardContent className="pt-6">
                 <div className="flex items-start gap-4">
                   <Avatar>
-                    <AvatarFallback>
-                      {comment.user.full_name?.charAt(0) || comment.user.email.charAt(0).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarFallback>{getDisplayName(comment.user).charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{comment.user.full_name || comment.user.email.split("@")[0]}</span>
+                      <span className="font-medium">{getDisplayName(comment.user)}</span>
                       <span className="text-sm text-muted-foreground">{formatDate(comment.created_at)}</span>
                       {comment.rating && (
                         <div className="flex items-center gap-1">
@@ -311,6 +369,28 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
                           </Badge>
                         )}
                       </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyComment(comment.content)}
+                        className="gap-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <Copy className="h-4 w-4" />
+                        <span className="text-xs">Copy</span>
+                      </Button>
+
+                      {user && user.id === comment.user_id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="text-xs">Delete</span>
+                        </Button>
+                      )}
 
                       <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" disabled={!user}>
                         <Flag className="h-4 w-4" />

@@ -146,6 +146,13 @@ export function Header({
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/community">
+                          <Users className="mr-2 h-4 w-4" />
+                          <span>Community</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut}>
                         <LogOut className="mr-2 h-4 w-4" />
                         <span>Log out</span>
@@ -219,6 +226,12 @@ export function Header({
                               <Link href="/profile" onClick={closeMobileMenu}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 Profile Settings
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild className="justify-start w-full">
+                              <Link href="/community" onClick={closeMobileMenu}>
+                                <Users className="mr-2 h-4 w-4" />
+                                Community
                               </Link>
                             </Button>
                             <Button
