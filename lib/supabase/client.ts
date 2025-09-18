@@ -1,13 +1,50 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+export const isSupabaseConfigured =
+  typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string" &&
+  process.env.NEXT_PUBLIC_SUPABASE_URL.length > 0 &&
+  typeof process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === "string" &&
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length > 0
 
-export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey)
+const createDummyClient = () => ({
+  auth: {
+    getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    signInWithPassword: () =>
+      Promise.resolve({ data: { user: null, session: null }, error: { message: "Supabase not configured" } }),
+    signUp: () =>
+      Promise.resolve({ data: { user: null, session: null }, error: { message: "Supabase not configured" } }),
+    signOut: () => Promise.resolve({ error: null }),
+  },
+  from: () => ({
+    select: () => ({
+      eq: () => ({
+        single: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+        limit: () => Promise.resolve({ data: [], error: null }),
+      }),
+      neq: () => ({
+        limit: () => Promise.resolve({ data: [], error: null }),
+      }),
+    }),
+    insert: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+    update: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+    delete: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+  }),
+})
 
 export const createClient = () => {
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey)
+  if (!isSupabaseConfigured) {
+    console.warn("Supabase environment variables are not set. Using dummy client.")
+    return createDummyClient()
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+  return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
+
+export const supabase = createClient()
 
 export type Database = {
   public: {

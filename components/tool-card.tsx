@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
+import { useState } from "react"
 
 interface ToolCardProps {
   tool: {
@@ -29,26 +30,45 @@ interface ToolCardProps {
 }
 
 export function ToolCard({ tool }: ToolCardProps) {
+  const [imageError, setImageError] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
+
+  const getImageSrc = () => {
+    if (!tool.image_url || imageError) {
+      return `/placeholder.svg?height=32&width=32&query=${encodeURIComponent(tool.name + " tool icon")}`
+    }
+    return tool.image_url
+  }
+
+  const handleImageError = () => {
+    setImageError(true)
+  }
+
+  const handleImageLoad = () => {
+    setImageLoaded(true)
+  }
+
   return (
     <Card className="group hover:shadow-lg transition-all duration-200 hover:-translate-y-1 bg-card border-border h-full flex flex-col">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center overflow-hidden shrink-0">
-              {tool.image_url ? (
-                <img
-                  src={tool.image_url || "/placeholder.svg"}
-                  alt={`${tool.name} logo`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.style.display = "none"
-                    target.nextElementSibling?.classList.remove("hidden")
-                  }}
-                />
-              ) : null}
-              <span className={`text-sm font-bold text-muted-foreground ${tool.image_url ? "hidden" : ""}`}>
-                {tool.name.charAt(0)}
+              <img
+                src={getImageSrc() || "/placeholder.svg"}
+                alt={`${tool.name} logo`}
+                className={`w-full h-full object-cover transition-opacity duration-200 ${
+                  imageLoaded && !imageError ? "opacity-100" : "opacity-0"
+                }`}
+                onError={handleImageError}
+                onLoad={handleImageLoad}
+              />
+              <span
+                className={`absolute text-sm font-bold text-muted-foreground transition-opacity duration-200 ${
+                  imageError || !imageLoaded ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {tool.name.charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="min-w-0 flex-1">

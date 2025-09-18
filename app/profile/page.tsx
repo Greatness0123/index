@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation"
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import { ProfileSettings } from "@/components/profile-settings"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 export default async function ProfilePage() {
-  const supabase = createServerClient()
+  const supabase = await createClient()
 
   const {
     data: { user },

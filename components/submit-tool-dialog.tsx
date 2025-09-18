@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { TagSelector } from "./tag-selector"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase/client"
 import { submitTool } from "@/lib/actions"
 import { useMobile } from "@/hooks/use-mobile"
 import { ImageUpload } from "./image-upload"
@@ -79,10 +79,7 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
 
   useEffect(() => {
     async function fetchCategories() {
-      const { data, error } = await createClientComponentClient()
-        .from("categories")
-        .select("id, name, slug")
-        .order("name")
+      const { data, error } = await createClient().from("categories").select("id, name, slug").order("name")
 
       if (error) {
         console.error("Error fetching categories:", error)
@@ -265,7 +262,7 @@ export function SubmitToolDialog() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const isMobile = useMobile()
-  const supabase = createClientComponentClient()
+  const supabase = createClient()
 
   useEffect(() => {
     const getUser = async () => {

@@ -1,7 +1,6 @@
 "use server"
 
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 import { revalidatePath } from "next/cache"
@@ -18,8 +17,7 @@ export async function signIn(prevState: any, formData: FormData) {
     return { error: "Email and password are required" }
   }
 
-  const cookieStore = cookies()
-  const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+  const supabaseClient = await createClient()
 
   try {
     const { error } = await supabaseClient.auth.signInWithPassword({
@@ -50,8 +48,7 @@ export async function signUp(prevState: any, formData: FormData) {
     return { error: "Email and password are required" }
   }
 
-  const cookieStore = cookies()
-  const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+  const supabaseClient = await createClient()
 
   try {
     const { error } = await supabaseClient.auth.signUp({
@@ -76,8 +73,7 @@ export async function signUp(prevState: any, formData: FormData) {
 }
 
 export async function signOut() {
-  const cookieStore = cookies()
-  const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+  const supabaseClient = await createClient()
 
   await supabaseClient.auth.signOut()
   redirect("/auth/login")
@@ -107,8 +103,7 @@ export async function submitTool(formData: FormData) {
   }
 
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -119,7 +114,7 @@ export async function submitTool(formData: FormData) {
       return { error: "You must be logged in to submit a tool" }
     }
 
-    const { data: existingTool, error: duplicateError } = await supabase
+    const { data: existingTool, error: duplicateError } = await supabaseClient
       .from("tools")
       .select("id, name")
       .eq("url", url.trim())
@@ -138,7 +133,7 @@ export async function submitTool(formData: FormData) {
     }
 
     // Insert the tool with user information
-    const { data: toolData, error: toolError } = await supabase
+    const { data: toolData, error: toolError } = await supabaseClient
       .from("tools")
       .insert({
         name: name.trim(),
@@ -173,7 +168,7 @@ export async function submitTool(formData: FormData) {
           display_order: index,
         }))
 
-        const { error: screenshotError } = await supabase.from("tool_screenshots").insert(screenshotData)
+        const { error: screenshotError } = await supabaseClient.from("tool_screenshots").insert(screenshotData)
 
         if (screenshotError) {
           console.error("Error inserting screenshots:", screenshotError)
@@ -191,7 +186,7 @@ export async function submitTool(formData: FormData) {
           tag_id: tagId,
         }))
 
-        const { error: tagError } = await supabase.from("tool_tags").insert(tagAssociations)
+        const { error: tagError } = await supabaseClient.from("tool_tags").insert(tagAssociations)
 
         if (tagError) {
           console.error("Error associating tags:", tagError)
@@ -209,8 +204,7 @@ export async function submitTool(formData: FormData) {
 
 export async function submitComment(toolId: string, content: string, rating: number | null) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -221,7 +215,7 @@ export async function submitComment(toolId: string, content: string, rating: num
       return { error: "You must be logged in to submit a comment" }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("comments")
       .insert({
         tool_id: toolId,
@@ -239,7 +233,14 @@ export async function submitComment(toolId: string, content: string, rating: num
     }
 
     try {
-      await updateToolStatsSimple(toolId)
+      const { error: statsError } = await supabaseClient.rpc("update_tool_statistics_safe", {
+        target_tool_id: toolId,
+      })
+
+      if (statsError) {
+        console.error("Error updating tool statistics:", statsError)
+        // Don't fail the comment submission if stats update fails
+      }
     } catch (statsError) {
       console.error("Error updating tool statistics:", statsError)
       // Don't fail the comment submission if stats update fails
@@ -255,8 +256,7 @@ export async function submitComment(toolId: string, content: string, rating: num
 
 export async function voteOnComment(commentId: string, isHelpful: boolean) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -268,7 +268,7 @@ export async function voteOnComment(commentId: string, isHelpful: boolean) {
     }
 
     // Check if already liked
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseClient
       .from("comment_votes")
       .select("id")
       .eq("comment_id", commentId)
@@ -277,13 +277,17 @@ export async function voteOnComment(commentId: string, isHelpful: boolean) {
 
     if (existing) {
       // Remove like
-      const { error } = await supabase.from("comment_votes").delete().eq("comment_id", commentId).eq("user_id", user.id)
+      const { error } = await supabaseClient
+        .from("comment_votes")
+        .delete()
+        .eq("comment_id", commentId)
+        .eq("user_id", user.id)
 
       if (error) throw error
       return { success: true, liked: false }
     } else {
       // Add like
-      const { error } = await supabase.from("comment_votes").insert({
+      const { error } = await supabaseClient.from("comment_votes").insert({
         comment_id: commentId,
         user_id: user.id,
       })
@@ -299,8 +303,7 @@ export async function voteOnComment(commentId: string, isHelpful: boolean) {
 
 export async function toggleFavorite(toolId: string) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -311,31 +314,48 @@ export async function toggleFavorite(toolId: string) {
       return { error: "You must be logged in to favorite tools" }
     }
 
-    // Check if already favorited
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseClient
       .from("user_favorites")
       .select("id")
       .eq("tool_id", toolId)
-      .eq("user_id", user.id) // Filter by user_id
+      .eq("user_id", user.id)
       .single()
 
     if (existing) {
       // Remove favorite
-      const { error } = await supabase.from("user_favorites").delete().eq("tool_id", toolId).eq("user_id", user.id) // Filter by user_id
+      const { error } = await supabaseClient
+        .from("user_favorites")
+        .delete()
+        .eq("tool_id", toolId)
+        .eq("user_id", user.id)
 
       if (error) throw error
     } else {
-      // Add favorite
-      const { error } = await supabase.from("user_favorites").insert({
-        tool_id: toolId,
-        user_id: user.id, // Include user_id from authenticated session
-      })
+      // Add favorite - use upsert to handle duplicate key constraint
+      const { error } = await supabaseClient.from("user_favorites").upsert(
+        {
+          tool_id: toolId,
+          user_id: user.id,
+        },
+        {
+          onConflict: "user_id,tool_id",
+        },
+      )
 
       if (error) throw error
     }
 
-    // Update tool stats
-    await updateToolStats(toolId)
+    try {
+      const { error: statsError } = await supabaseClient.rpc("update_tool_statistics_safe", {
+        target_tool_id: toolId,
+      })
+
+      if (statsError) {
+        console.error("Error updating tool statistics:", statsError)
+      }
+    } catch (statsError) {
+      console.error("Error updating tool statistics:", statsError)
+    }
 
     revalidatePath(`/tools/${toolId}`)
     return { success: true }
@@ -347,8 +367,9 @@ export async function toggleFavorite(toolId: string) {
 
 export async function trackToolView(toolId: string, userId?: string) {
   try {
-    // Insert view record
-    await supabase.from("tool_views").insert({
+    const supabaseClient = await createClient()
+
+    await supabaseClient.from("tool_views").insert({
       tool_id: toolId,
       user_id: userId || null,
     })
@@ -363,11 +384,19 @@ export async function trackToolView(toolId: string, userId?: string) {
 
 export async function trackToolClick(toolId: string) {
   try {
-    const { error } = await supabase.rpc("increment_click_count", {
-      target_tool_id: toolId,
+    const supabaseClient = await createClient()
+
+    const { error } = await supabaseClient.rpc("track_tool_click_safe", {
+      p_tool_id: toolId,
+      p_user_id: null,
+      p_ip_address: null,
+      p_user_agent: null,
     })
 
-    if (error) throw error
+    if (error) {
+      console.error("Error tracking click:", error)
+      return { error: "Failed to track click" }
+    }
 
     return { success: true }
   } catch (error) {
@@ -378,8 +407,7 @@ export async function trackToolClick(toolId: string) {
 
 export async function deleteTool(toolId: string) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -391,7 +419,7 @@ export async function deleteTool(toolId: string) {
     }
 
     // Check if user owns this tool
-    const { data: tool, error: toolError } = await supabase
+    const { data: tool, error: toolError } = await supabaseClient
       .from("tools")
       .select("id, name, submitted_by")
       .eq("id", toolId)
@@ -407,17 +435,17 @@ export async function deleteTool(toolId: string) {
 
     // Delete related data first (foreign key constraints)
     await Promise.all([
-      supabase.from("tool_screenshots").delete().eq("tool_id", toolId),
-      supabase.from("tool_tags").delete().eq("tool_id", toolId),
-      supabase.from("comments").delete().eq("tool_id", toolId),
-      supabase.from("user_favorites").delete().eq("tool_id", toolId),
-      supabase.from("tool_views").delete().eq("tool_id", toolId),
-      supabase.from("tool_clicks").delete().eq("tool_id", toolId),
-      supabase.from("tool_stats").delete().eq("tool_id", toolId),
+      supabaseClient.from("tool_screenshots").delete().eq("tool_id", toolId),
+      supabaseClient.from("tool_tags").delete().eq("tool_id", toolId),
+      supabaseClient.from("comments").delete().eq("tool_id", toolId),
+      supabaseClient.from("user_favorites").delete().eq("tool_id", toolId),
+      supabaseClient.from("tool_views").delete().eq("tool_id", toolId),
+      supabaseClient.from("tool_clicks").delete().eq("tool_id", toolId),
+      supabaseClient.from("tool_stats").delete().eq("tool_id", toolId),
     ])
 
     // Delete the tool
-    const { error: deleteError } = await supabase.from("tools").delete().eq("id", toolId)
+    const { error: deleteError } = await supabaseClient.from("tools").delete().eq("id", toolId)
 
     if (deleteError) {
       console.error("Error deleting tool:", deleteError)
@@ -442,8 +470,7 @@ export async function updateUserProfile(profileData: {
   show_as_author: boolean
 }) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -454,7 +481,7 @@ export async function updateUserProfile(profileData: {
       return { error: "You must be logged in to update your profile" }
     }
 
-    const { error } = await supabase.from("users").upsert({
+    const { error } = await supabaseClient.from("users").upsert({
       id: user.id,
       email: user.email,
       display_name: profileData.display_name.trim(),
@@ -494,8 +521,7 @@ export async function createCommunityPost(formData: FormData) {
   }
 
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -507,7 +533,7 @@ export async function createCommunityPost(formData: FormData) {
     }
 
     // Get user profile for display name
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await supabaseClient
       .from("users")
       .select("display_name, full_name")
       .eq("id", user.id)
@@ -524,7 +550,7 @@ export async function createCommunityPost(formData: FormData) {
           .filter(Boolean)
       : []
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("community_posts")
       .insert({
         title: title.trim(),
@@ -555,8 +581,7 @@ export async function createCommunityPost(formData: FormData) {
 
 export async function likeCommunityPost(postId: string) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -568,7 +593,7 @@ export async function likeCommunityPost(postId: string) {
     }
 
     // Check if already liked
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseClient
       .from("community_post_likes")
       .select("id")
       .eq("post_id", postId)
@@ -577,7 +602,7 @@ export async function likeCommunityPost(postId: string) {
 
     if (existing) {
       // Remove like
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from("community_post_likes")
         .delete()
         .eq("post_id", postId)
@@ -587,7 +612,7 @@ export async function likeCommunityPost(postId: string) {
       return { success: true, liked: false }
     } else {
       // Add like
-      const { error } = await supabase.from("community_post_likes").insert({
+      const { error } = await supabaseClient.from("community_post_likes").insert({
         post_id: postId,
         user_id: user.id,
       })
@@ -603,8 +628,7 @@ export async function likeCommunityPost(postId: string) {
 
 export async function createCommunityComment(postId: string, content: string, parentId?: string) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -616,7 +640,7 @@ export async function createCommunityComment(postId: string, content: string, pa
     }
 
     // Get user profile for display name
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await supabaseClient
       .from("users")
       .select("display_name, full_name, show_as_author")
       .eq("id", user.id)
@@ -627,7 +651,7 @@ export async function createCommunityComment(postId: string, content: string, pa
       ? userProfile?.display_name || userProfile?.full_name || user.email?.split("@")[0] || "Anonymous"
       : null
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from("community_comments")
       .insert({
         post_id: postId,
@@ -655,8 +679,7 @@ export async function createCommunityComment(postId: string, content: string, pa
 
 export async function likeCommunityComment(commentId: string) {
   try {
-    const cookieStore = cookies()
-    const supabaseClient = createServerActionClient({ cookies: () => cookieStore })
+    const supabaseClient = await createClient()
 
     const {
       data: { user },
@@ -668,7 +691,7 @@ export async function likeCommunityComment(commentId: string) {
     }
 
     // Check if already liked
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseClient
       .from("community_comment_likes")
       .select("id")
       .eq("comment_id", commentId)
@@ -677,7 +700,7 @@ export async function likeCommunityComment(commentId: string) {
 
     if (existing) {
       // Remove like
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from("community_comment_likes")
         .delete()
         .eq("comment_id", commentId)
@@ -687,7 +710,7 @@ export async function likeCommunityComment(commentId: string) {
       return { success: true, liked: false }
     } else {
       // Add like
-      const { error } = await supabase.from("community_comment_likes").insert({
+      const { error } = await supabaseClient.from("community_comment_likes").insert({
         comment_id: commentId,
         user_id: user.id,
       })

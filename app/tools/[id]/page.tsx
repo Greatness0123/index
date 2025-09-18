@@ -10,7 +10,7 @@ interface ToolDetailPageProps {
 }
 
 export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Fetch tool with all related data
   const { data: tool, error } = await supabase
@@ -67,7 +67,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
 }
 
 export async function generateMetadata({ params }: ToolDetailPageProps) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: tool } = await supabase
     .from("tools")
