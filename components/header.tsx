@@ -54,7 +54,7 @@ export function Header({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChanged((event, session) => {
       setUser(session?.user ?? null)
     })
 
