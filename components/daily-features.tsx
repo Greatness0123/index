@@ -1,154 +1,156 @@
 "use client"
 
-import { ExternalLink, Star } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase/client"
+import { Sparkles, RefreshCw, ExternalLink, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 import Link from "next/link"
-import { useState } from "react"
+import Image from "next/image"
 
-interface ToolCardProps {
-  tool: {
-    id: string
-    name: string
-    description: string
-    url: string
-    image_url: string | null
-    pricing: string | null
-    rating: number
-    rating_count: number
-    is_featured: boolean
-    category?: {
-      name: string
-      color: string
-    }
-    tags?: Array<{
-      name: string
-      slug: string
-    }>
-  }
+interface Tool {
+  id: string
+  name: string
+  description: string
+  url: string
+  image_url: string | null
+  pricing: string | null
+  rating: number
+  rating_count: number
+  is_featured: boolean
 }
 
-export function ToolCard({ tool }: ToolCardProps) {
-  const [imageError, setImageError] = useState(false)
-  const [imageLoaded, setImageLoaded] = useState(false)
+export function DailyFeatures() {
+  const [featuredTools, setFeaturedTools] = useState<Tool[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const getImageSrc = () => {
-    if (!tool.image_url || imageError) {
-      return `/placeholder.svg?height=32&width=32&query=${encodeURIComponent(tool.name + " tool icon")}`
+  const fetchDailyFeatures = async () => {
+    // Only fetch tools that are featured, approved, and top-rated
+    const { data: tools, error } = await supabase
+      .from("tools")
+      .select(
+        "id, name, description, url, image_url, pricing, rating, rating_count, is_featured"
+      )
+      .eq("is_approved", true)
+      .eq("is_featured", true) // <-- Only featured!
+      .gte("rating", 4.0)
+      .order("rating", { ascending: false })
+      .limit(20)
+
+    if (error) {
+      console.error("Error fetching daily features:", error)
+      return
     }
-    return tool.image_url
+
+    // Randomly select up to 4 featured tools from the top-rated featured ones
+    const shuffled = tools?.sort(() => 0.5 - Math.random()) || []
+    const selected = shuffled.slice(0, 4)
+    setFeaturedTools(selected)
   }
 
-  const handleImageError = () => {
-    setImageError(true)
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    await fetchDailyFeatures()
+    setRefreshing(false)
   }
 
-  const handleImageLoad = () => {
-    setImageLoaded(true)
+  useEffect(() => {
+    fetchDailyFeatures().finally(() => setLoading(false))
+  }, [])
+
+  if (loading || refreshing) {
+    return (
+      <section className="bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 border-b border-border">
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
-    <Card className="group hover:shadow-lg transition-all duration-200 hover:-translate-y-1 bg-card border-border h-full flex flex-col">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center overflow-hidden shrink-0">
-              <img
-                src={getImageSrc() || "/placeholder.svg"}
-                alt={`${tool.name} logo`}
-                className={`w-full h-full object-cover transition-opacity duration-200 ${
-                  imageLoaded && !imageError ? "opacity-100" : "opacity-0"
-                }`}
-                onError={handleImageError}
-                onLoad={handleImageLoad}
-              />
-              <span
-                className={`absolute text-sm font-bold text-muted-foreground transition-opacity duration-200 ${
-                  imageError || !imageLoaded ? "opacity-100" : "opacity-0"
-                }`}
-              >
-                {tool.name.charAt(0).toUpperCase()}
-              </span>
+    <section className="bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 border-b border-border">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Sparkles className="h-6 w-6 text-primary" />
             </div>
-            <div className="min-w-0 flex-1">
-              <Link href={`/tools/${tool.id}`}>
-                <CardTitle className="text-base sm:text-lg font-bold text-card-foreground group-hover:text-accent transition-colors line-clamp-2 cursor-pointer">
-                  {tool.name}
-                </CardTitle>
-              </Link>
-              {tool.category && (
-                <Badge variant="secondary" className="mt-1 text-xs">
-                  {tool.category.name}
-                </Badge>
-              )}
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">Daily Features</h2>
+              <p className="text-muted-foreground">Discover amazing tools handpicked for today</p>
             </div>
           </div>
-          {tool.is_featured && <Badge className="bg-accent text-accent-foreground shrink-0 ml-2">Featured</Badge>}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="gap-2 bg-transparent"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
-      </CardHeader>
 
-      {/* Added overflow-hidden to CardContent */}
-      <CardContent className="pt-0 flex-1 flex flex-col overflow-hidden">
-        <CardDescription className="text-muted-foreground mb-4 line-clamp-3 text-sm flex-1">
-          {tool.description}
-        </CardDescription>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {featuredTools.length === 0 ? (
+            <div className="col-span-4 text-center text-muted-foreground py-8">
+              No featured tools found for today.
+            </div>
+          ) : (
+            featuredTools.map((tool) => (
+              <Card key={tool.id} className="p-4 hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    {tool.image_url ? (
+                      <Image
+                        src={tool.image_url}
+                        alt={`${tool.name} logo`}
+                        width={40}
+                        height={40}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-primary">
+                          {tool.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="font-semibold text-sm text-foreground truncate flex-1">{tool.name}</h3>
+                </div>
 
-        {tool.tags && tool.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-4">
-            {tool.tags.slice(0, 3).map((tag) => (
-              <Badge key={tag.slug} variant="outline" className="text-xs">
-                {tag.name}
-              </Badge>
-            ))}
-            {tool.tags.length > 3 && (
-              <Badge variant="outline" className="text-xs">
-                +{tool.tags.length - 3}
-              </Badge>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            {tool.rating > 0 && (
-              <div className="flex items-center gap-1">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-medium">{tool.rating}</span>
-                <span className="text-xs text-muted-foreground">({tool.rating_count})</span>
-              </div>
-            )}
-            {tool.pricing && (
-              <Badge variant="outline" className="text-xs">
-                {tool.pricing}
-              </Badge>
-            )}
-          </div>
-
-          {/* FIX: Added flex-wrap, min-w-0 and shrink to button container and buttons */}
-          <div className="flex gap-2 flex-wrap min-w-0">
-            <Link href={`/tools/${tool.id}`}>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs bg-transparent min-w-0 shrink"
-                style={{ maxWidth: "100%" }}
-              >
-                View Details
-              </Button>
-            </Link>
-            <Button
-              size="sm"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs min-w-0 shrink"
-              style={{ maxWidth: "100%" }}
-              onClick={() => window.open(tool.url, "_blank")}
-            >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              Visit
-            </Button>
-          </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Link href={`/tools/${tool.id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full gap-2 text-xs bg-transparent">
+                      <Eye className="h-3 w-3" />
+                      View Details
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-2"
+                    onClick={() => window.open(tool.url, "_blank")}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground mb-1 truncate">{tool.description}</div>
+                {tool.pricing && (
+                  <div className="text-xs text-accent-foreground">Pricing: {tool.pricing}</div>
+                )}
+                <div className="text-xs text-muted-foreground">Rating: {tool.rating} ({tool.rating_count})</div>
+              </Card>
+            ))
+          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   )
 }
