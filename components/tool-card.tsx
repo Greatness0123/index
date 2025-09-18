@@ -117,11 +117,11 @@ export function ToolCard({ tool }: ToolCardProps) {
                 <span className="text-xs text-muted-foreground">({tool.rating_count})</span>
               </div>
             )}
-{/*             {tool.pricing && (
+            {tool.pricing && (
               <Badge variant="outline" className="text-xs">
                 {tool.pricing}
               </Badge>
-            )} */}
+            )}
           </div>
 
           <div className="flex gap-2">
