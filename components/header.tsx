@@ -4,7 +4,7 @@ import { Search, Sparkles, User, LogOut, Settings, Users, Menu } from "lucide-re
 import { Input } from "@/components/ui/input"
 import { SubmitToolDialog } from "./submit-tool-dialog"
 import { FiltersModal } from "./filters-modal"
-import { createClient } from "@/lib/supabase/client"
+import { supabase } from "@/lib/supabase/client"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
