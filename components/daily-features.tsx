@@ -26,23 +26,25 @@ export function DailyFeatures() {
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchDailyFeatures = async () => {
-    const { data: tools, error } = await supabase
-      .from("tools")
-      .select(`
-        id,
-        name,
-        description,
-        url,
-        image_url,
-        pricing,
-        rating,
-        rating_count,
-        is_featured
-      `)
-      .eq("is_approved", true)
-      .gte("rating", 4.0)
-      .order("rating", { ascending: false })
-      .limit(20)
+  const { data, error } = await supabase
+    .from("tools")
+    .select(
+      `
+      id,
+      name,
+      description,
+      url,
+      image_url,
+      pricing,
+      rating,
+      rating_count,
+      is_featured
+    `
+    )
+    .eq("is_approved", true)
+    .gte("rating", 4.0)
+    .order("rating", { ascending: false, nullsFirst: false })
+    .limit(20)
 
     if (error) {
       console.error("Error fetching daily features:", error)
