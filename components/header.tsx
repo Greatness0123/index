@@ -52,11 +52,11 @@ export function Header({
     }
     getUser()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-    })
+   const { data: subscription } = supabase.auth.onAuthStateChange(
+    (event, session) => {
+      setUser(session?.user ?? null);
+    }
+  )
 
     return () => subscription.unsubscribe()
   }, [supabase.auth])
