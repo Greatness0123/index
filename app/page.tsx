@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-// import { Header } from "@/components/header"
+import { Header } from "@/components/header"
 // import { CategoryFilter } from "@/components/category-filter"
 import { ToolsGrid } from "@/components/tools-grid"
 import { FloatingActionButton } from "@/components/floating-action-button"
@@ -25,7 +25,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-{/*       <Header
+      <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedPricing={selectedPricing}
@@ -33,7 +33,7 @@ export default function HomePage() {
         onPricingChange={setSelectedPricing}
         onRatingChange={setSelectedRating}
         onClearFilters={handleClearFilters}
-      /> */}
+      />
 
       <DailyFeatures />
 
