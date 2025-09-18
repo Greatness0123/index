@@ -42,7 +42,7 @@ export function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const supabase = createClient()
 
-  useEffect(() => {
+ useEffect(() => {
   const getUser = async () => {
     const {
       data: { user },
@@ -52,14 +52,17 @@ export function Header({
   }
   getUser()
 
-  const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
     setUser(session?.user ?? null)
   })
 
   return () => {
-    authListener.subscription.unsubscribe()
+    subscription.unsubscribe()
   }
-}, [supabase.auth])
+}, [supabase])
+
 
 
   const handleSignOut = async () => {
