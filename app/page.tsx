@@ -5,7 +5,7 @@ import { Header } from "@/components/header"
 import { CategoryFilter } from "@/components/category-filter"
 import { ToolsGrid } from "@/components/tools-grid"
 import { FloatingActionButton } from "@/components/floating-action-button"
-import { DailyFeatures } from "@/components/daily-features"
+// import { DailyFeatures } from "@/components/daily-features"
 import { useDebounce } from "@/hooks/use-debounce"
 
 export default function HomePage() {
