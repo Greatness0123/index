@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 "use client"
 
 import { Search, Sparkles, User, LogOut, Settings, Users, Menu } from "lucide-react"
