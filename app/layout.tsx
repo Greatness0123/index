@@ -25,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="antialiased">
       <head>
+        <link rel="icon" href="/favicon.ico" />
         <style>{`
 html {
   font-family: ${inter.style.fontFamily};
