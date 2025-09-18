@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { TagSelector } from "./tag-selector"
 import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
 import { submitTool } from "@/lib/actions"
 import { useMobile } from "@/hooks/use-mobile"
 import { ImageUpload } from "./image-upload"
