@@ -142,8 +142,8 @@ export function DailyFeatures() {
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground mb-1 truncate">{tool.description}</div>
-                {tool.pricing && (
-                  <div className="text-xs text-accent-foreground">Pricing: {tool.pricing}</div>
+{/*                 {tool.pricing && (
+                  <div className="text-xs text-accent-foreground">Pricing: {tool.pricing}</div> */}
                 )}
                 <div className="text-xs text-muted-foreground">Rating: {tool.rating} ({tool.rating_count})</div>
               </Card>
