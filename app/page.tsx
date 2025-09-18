@@ -35,7 +35,7 @@ export default function HomePage() {
         onClearFilters={handleClearFilters}
       />
 
-      <DailyFeatures />
+{/*       <DailyFeatures /> */}
 
       <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
 
