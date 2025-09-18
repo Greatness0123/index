@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { TagSelector } from "./tag-selector"
-import { createClient } from "@/lib/supabase/client"
+import { supabase } from "@/lib/supabase/client"
 import { submitTool } from "@/lib/actions"
 import { useMobile } from "@/hooks/use-mobile"
 import { ImageUpload } from "./image-upload"
@@ -79,7 +79,7 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
 
   useEffect(() => {
     async function fetchCategories() {
-      const { data, error } = await createClient().from("categories").select("id, name, slug").order("name")
+      const { data, error } = await supabase().from("categories").select("id, name, slug").order("name")
 
       if (error) {
         console.error("Error fetching categories:", error)
