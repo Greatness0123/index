@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Header } from "@/components/header"
-// import { CategoryFilter } from "@/components/category-filter"
+// import { Header } from "@/components/header"
+import { CategoryFilter } from "@/components/category-filter"
 import { ToolsGrid } from "@/components/tools-grid"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { DailyFeatures } from "@/components/daily-features"
@@ -25,7 +25,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header
+{/*       <Header
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedPricing={selectedPricing}
@@ -33,12 +33,12 @@ export default function HomePage() {
         onPricingChange={setSelectedPricing}
         onRatingChange={setSelectedRating}
         onClearFilters={handleClearFilters}
-      />
+      /> */}
 
       <DailyFeatures />
 
-{/*       <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
- */}
+      <CategoryFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
+
       <main className="container mx-auto">
         <ToolsGrid
           selectedCategory={selectedCategory}
