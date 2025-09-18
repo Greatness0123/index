@@ -25,33 +25,27 @@ export function DailyFeatures() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
-const fetchDailyFeatures = async () =>
-  { const { data: tools, error } = await supabase .from("tools")
-    .select(
-      id,
-      name,
-      description,
-      url, 
-      image_url, 
-      pricing, 
-      rating, 
-      rating_count, 
-      is_featured 
-    ) 
-    .eq("is_approved", true) 
-    .gte("rating", 4.0) 
-    .order("rating", { ascending: false }) 
-    .limit(20)
+  const fetchDailyFeatures = async () => {
+    // Only fetch tools that are featured, approved, and top-rated
+    const { data: tools, error } = await supabase
+      .from("tools")
+      .select(
+        "id, name, description, url, image_url, pricing, rating, rating_count, is_featured"
+      )
+      .eq("is_approved", true)
+      .eq("is_featured", true) // <-- Only featured!
+      .gte("rating", 4.0)
+      .order("rating", { ascending: false })
+      .limit(20)
 
     if (error) {
       console.error("Error fetching daily features:", error)
       return
     }
 
-    // Randomly select 4 tools from the top-rated ones
+    // Randomly select up to 4 featured tools from the top-rated featured ones
     const shuffled = tools?.sort(() => 0.5 - Math.random()) || []
     const selected = shuffled.slice(0, 4)
-
     setFeaturedTools(selected)
   }
 
@@ -65,7 +59,7 @@ const fetchDailyFeatures = async () =>
     fetchDailyFeatures().finally(() => setLoading(false))
   }, [])
 
-  if (loading) {
+  if (loading || refreshing) {
     return (
       <section className="bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 border-b border-border">
         <div className="container mx-auto px-4 py-8">
@@ -103,40 +97,58 @@ const fetchDailyFeatures = async () =>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {featuredTools.map((tool) => (
-            <Card key={tool.id} className="p-4 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                  {tool.image_url ? (
-                    <Image
-                      src={tool.image_url || "/placeholder.svg"}
-                      alt={`${tool.name} logo`}
-                      width={40}
-                      height={40}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                      <span className="text-xs font-semibold text-primary">{tool.name.charAt(0).toUpperCase()}</span>
-                    </div>
-                  )}
+          {featuredTools.length === 0 ? (
+            <div className="col-span-4 text-center text-muted-foreground py-8">
+              No featured tools found for today.
+            </div>
+          ) : (
+            featuredTools.map((tool) => (
+              <Card key={tool.id} className="p-4 hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    {tool.image_url ? (
+                      <Image
+                        src={tool.image_url}
+                        alt={`${tool.name} logo`}
+                        width={40}
+                        height={40}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-primary">
+                          {tool.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="font-semibold text-sm text-foreground truncate flex-1">{tool.name}</h3>
                 </div>
-                <h3 className="font-semibold text-sm text-foreground truncate flex-1">{tool.name}</h3>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <Link href={`/tools/${tool.id}`} className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full gap-2 text-xs bg-transparent">
-                    <Eye className="h-3 w-3" />
-                    View Details
+                <div className="flex items-center gap-2 mb-2">
+                  <Link href={`/tools/${tool.id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full gap-2 text-xs bg-transparent">
+                      <Eye className="h-3 w-3" />
+                      View Details
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-2"
+                    onClick={() => window.open(tool.url, "_blank")}
+                  >
+                    <ExternalLink className="h-3 w-3" />
                   </Button>
-                </Link>
-                <Button variant="ghost" size="sm" className="p-2" onClick={() => window.open(tool.url, "_blank")}>
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              </div>
-            </Card>
-          ))}
+                </div>
+                <div className="text-xs text-muted-foreground mb-1 truncate">{tool.description}</div>
+                {tool.pricing && (
+                  <div className="text-xs text-accent-foreground">Pricing: {tool.pricing}</div>
+                )}
+                <div className="text-xs text-muted-foreground">Rating: {tool.rating} ({tool.rating_count})</div>
+              </Card>
+            ))
+          )}
         </div>
       </div>
     </section>
