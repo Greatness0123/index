@@ -1,14 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User } from "lucide-react"
+import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { AuthorProfileModal } from "./author-profile-modal"
 import { likeCommunityPost } from "@/lib/actions"
 import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 interface CommunityPost {
   id: string
@@ -40,6 +42,12 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [likeCount, setLikeCount] = useState(post.like_count)
   const [isLiking, setIsLiking] = useState(false)
   const [showAuthorModal, setShowAuthorModal] = useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+
+  // If image_url is a string, convert it to an array
+  const images = post.image_url 
+    ? (Array.isArray(post.image_url) ? post.image_url : [post.image_url])
+    : []
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -61,6 +69,26 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const handleAuthorClick = () => {
     if (post.show_author && post.author_id && post.author_name) {
       setShowAuthorModal(true)
+    }
+  }
+
+  const openImageModal = (index: number) => {
+    setSelectedImageIndex(index)
+  }
+
+  const closeImageModal = () => {
+    setSelectedImageIndex(null)
+  }
+
+  const goToNextImage = () => {
+    if (selectedImageIndex !== null) {
+      setSelectedImageIndex((selectedImageIndex + 1) % images.length)
+    }
+  }
+
+  const goToPrevImage = () => {
+    if (selectedImageIndex !== null) {
+      setSelectedImageIndex((selectedImageIndex - 1 + images.length) % images.length)
     }
   }
 
@@ -138,17 +166,40 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
         </CardHeader>
 
         <CardContent className="pt-0">
-          <p className="text-muted-foreground mb-4 line-clamp-3">{post.content}</p>
-
-          {post.image_url && (
-            <div className="mb-4">
-              <img
-                src={post.image_url || "/placeholder.svg"}
-                alt="Post image"
-                className="w-full h-48 object-cover rounded-lg"
-              />
+          {/* Content with image gallery */}
+          <div className={cn(
+            "flex flex-col lg:flex-row gap-4 mb-4",
+            images.length > 0 && "items-start"
+          )}>
+            {/* Text content */}
+            <div className={cn(
+              "flex-1",
+              images.length > 0 && "lg:min-w-0"
+            )}>
+              <p className="text-muted-foreground">{post.content}</p>
             </div>
-          )}
+            
+            {/* Image gallery - appears beside text on large screens, below on small screens */}
+            {images.length > 0 && (
+              <div className="lg:w-48 flex-shrink-0">
+                <div className="grid grid-cols-2 gap-2">
+                  {images.map((image, index) => (
+                    <div
+                      key={index}
+                      className="aspect-square cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105"
+                      onClick={() => openImageModal(index)}
+                    >
+                      <img
+                        src={image || "/placeholder.svg"}
+                        alt={`Post image ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-4">
@@ -200,6 +251,66 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
           </div>
         </CardContent>
       </Card>
+
+      {/* Image Modal */}
+      <Dialog open={selectedImageIndex !== null} onOpenChange={(open) => !open && closeImageModal()}>
+        <DialogContent className="max-w-4xl p-0 bg-transparent border-none">
+          {selectedImageIndex !== null && (
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70"
+                onClick={closeImageModal}
+              >
+                <X className="h-6 w-6" />
+              </Button>
+              
+              {images.length > 1 && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-4 top-1/2 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 -translate-y-1/2"
+                    onClick={goToPrevImage}
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-4 top-1/2 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 -translate-y-1/2"
+                    onClick={goToNextImage}
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </Button>
+                </>
+              )}
+              
+              <div className="flex items-center justify-center h-[80vh]">
+                <img
+                  src={images[selectedImageIndex] || "/placeholder.svg"}
+                  alt={`Post image ${selectedImageIndex + 1}`}
+                  className="max-h-full max-w-full object-contain rounded-lg"
+                />
+              </div>
+              
+              {images.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+                  {images.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`h-2 w-2 rounded-full ${
+                        index === selectedImageIndex ? "bg-white" : "bg-white/50"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {post.author_id && post.author_name && (
         <AuthorProfileModal
