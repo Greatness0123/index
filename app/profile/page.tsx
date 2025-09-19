@@ -216,7 +216,7 @@ export default async function ProfilePage() {
                           <DeleteCommentButton
                             commentId={comment.id}
                             commentType="tool"
-                            onSuccess={() => window.location.reload()}
+{/*                             onSuccess={() => window.location.reload()} */}
                           />
                         </div>
                       </div>
@@ -248,7 +248,7 @@ export default async function ProfilePage() {
                           <DeleteCommentButton
                             commentId={comment.id}
                             commentType="community"
-                            onSuccess={() => window.location.reload()}
+{/*                             onSuccess={() => window.location.reload()} */}
                           />
                         </div>
                       </div>
