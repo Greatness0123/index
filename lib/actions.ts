@@ -373,6 +373,64 @@ export async function toggleFavorite(toolId: string) {
   }
 }
 
+// Add this function to your existing actions.ts
+export async function getComments(toolId: string, userId?: string) {
+  try {
+    const supabaseClient = await createClient()
+
+    // Base query for comments
+    let query = supabaseClient
+      .from("comments")
+      .select(`
+        id, 
+        content, 
+        rating, 
+        created_at, 
+        helpful_count, 
+        user_id,
+        users!inner(id, email, full_name, display_name)
+      `)
+      .eq("tool_id", toolId)
+      .eq("is_approved", true)
+      .order("created_at", { ascending: false })
+
+    const { data: commentsData, error: commentsError } = await query
+
+    if (commentsError) {
+      console.error("Error fetching comments:", commentsError)
+      return { error: "Failed to fetch comments" }
+    }
+
+    // If user is logged in, fetch their votes
+    let userVotes = {}
+    if (userId) {
+      const { data: votesData, error: votesError } = await supabaseClient
+        .from("comment_votes")
+        .select("comment_id, is_helpful")
+        .eq("user_id", userId)
+        .in("comment_id", commentsData?.map(c => c.id) || [])
+
+      if (!votesError && votesData) {
+        userVotes = votesData.reduce((acc, vote) => {
+          acc[vote.comment_id] = vote
+          return acc
+        }, {})
+      }
+    }
+
+    // Transform comments with user vote information
+    const transformedComments = (commentsData || []).map(comment => ({
+      ...comment,
+      user_vote: userVotes[comment.id] || null,
+      total_votes: comment.helpful_count // Adjust if you have a different way to track total votes
+    }))
+
+    return { comments: transformedComments }
+  } catch (error) {
+    console.error("Error in getComments:", error)
+    return { error: "An unexpected error occurred" }
+  }
+}
 export async function trackToolView(toolId: string, userId?: string) {
   try {
     const supabaseClient = await createClient()
