@@ -166,45 +166,53 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
         </CardHeader>
 
         <CardContent className="pt-0">
-          {/* Content with image gallery */}
+          {/* Content with improved image gallery layout */}
           <div className={cn(
             "flex flex-col gap-4 mb-4",
-            images.length > 0 && "lg:flex-row lg:items-start"
+            images.length > 0 && "md:flex-row md:gap-6"
           )}>
             {/* Text content */}
             <div className={cn(
-              "flex-1",
-              images.length > 0 && "lg:min-w-0"
+              "flex-1 min-w-0",
+              images.length > 0 && "md:flex-[2]"
             )}>
-              <p className="text-muted-foreground">{post.content}</p>
+              <p className="text-muted-foreground leading-relaxed">{post.content}</p>
             </div>
             
-            {/* Image gallery */}
+            {/* Image gallery - improved for desktop */}
             {images.length > 0 && (
               <div className={cn(
                 "flex-shrink-0",
-                images.length > 0 && "lg:w-64" // Reduced width for better fit
+                images.length > 0 && "md:flex-[1] md:max-w-xs"
               )}>
                 <div className={cn(
                   "grid gap-2",
-                  images.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                  images.length === 1 
+                    ? "grid-cols-1" 
+                    : images.length === 2 
+                      ? "grid-cols-2 md:grid-cols-1" 
+                      : images.length === 3
+                        ? "grid-cols-2 md:grid-cols-2"
+                        : "grid-cols-2"
                 )}>
                   {images.map((image, index) => (
                     <div
                       key={index}
                       className={cn(
-                        "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
+                        "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:scale-105 hover:shadow-lg",
                         images.length === 1 
                           ? "aspect-video" 
-                          : "aspect-square",
-                        "w-full" // Ensure full width within container
+                          : images.length === 2
+                            ? "aspect-square md:aspect-video"
+                            : "aspect-square",
+                        "w-full"
                       )}
                       onClick={() => openImageModal(index)}
                     >
                       <img
                         src={image || "/placeholder.svg"}
                         alt={`Post image ${index + 1}`}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition-transform duration-300"
                         loading="lazy"
                       />
                     </div>
