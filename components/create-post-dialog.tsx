@@ -22,6 +22,12 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const [imageUrls, setImageUrls] = useState([""]) // Start with one empty image URL field
   const [videoUrls, setVideoUrls] = useState([""]) // Start with one empty video URL field
   const [activeMediaTab, setActiveMediaTab] = useState("images")
+  const [title, setTitle] = useState("")
+  const [content, setContent] = useState("")
+  const [postType, setPostType] = useState("discussion")
+  const [externalUrl, setExternalUrl] = useState("")
+  const [tags, setTags] = useState("")
+  const [showAuthor, setShowAuthor] = useState(true)
   const router = useRouter()
 
   const addImageField = () => {
@@ -66,43 +72,46 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     return videoPatterns.some(pattern => pattern.test(url))
   }
 
-  // Function to generate YouTube embed URL
-  const getEmbedUrl = (url: string) => {
-    // YouTube
-    const youtubeMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
-    if (youtubeMatch) {
-      return `https://www.youtube.com/embed/${youtubeMatch[1]}`
-    }
-    
-    // Vimeo
-    const vimeoMatch = url.match(/(?:vimeo\.com\/)([0-9]+)/)
-    if (vimeoMatch) {
-      return `https://player.vimeo.com/video/${vimeoMatch[1]}`
-    }
-    
-    return url // Return original URL for direct video files
-  }
-
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     setIsSubmitting(true)
     setError("")
 
-    // Add all image URLs to form data as a comma-separated string
-    const validImageUrls = imageUrls.filter(url => url.trim() !== "")
-    if (validImageUrls.length > 0) {
-      formData.append("imageUrls", validImageUrls.join(","))
+    // Validate required fields
+    if (!title.trim() || !content.trim()) {
+      setError("Title and content are required")
+      setIsSubmitting(false)
+      return
     }
 
-    // Add all video URLs to form data as a comma-separated string
+    // Validate video URLs
     const validVideoUrls = videoUrls.filter(url => url.trim() !== "")
     if (validVideoUrls.length > 0) {
-      // Validate video URLs before submitting
       const invalidVideos = validVideoUrls.filter(url => !isValidVideoUrl(url))
       if (invalidVideos.length > 0) {
         setError("Please enter valid video URLs (YouTube, Vimeo, or direct video file links)")
         setIsSubmitting(false)
         return
       }
+    }
+
+    // Create FormData
+    const formData = new FormData()
+    formData.append("title", title.trim())
+    formData.append("content", content.trim())
+    formData.append("postType", postType)
+    formData.append("externalUrl", externalUrl.trim())
+    formData.append("tags", tags.trim())
+    formData.append("showAuthor", showAuthor.toString())
+
+    // Add image URLs if any
+    const validImageUrls = imageUrls.filter(url => url.trim() !== "")
+    if (validImageUrls.length > 0) {
+      formData.append("imageUrls", validImageUrls.join(","))
+    }
+
+    // Add video URLs if any
+    if (validVideoUrls.length > 0) {
       formData.append("videoUrls", validVideoUrls.join(","))
     }
 
@@ -111,6 +120,16 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     if (result.error) {
       setError(result.error)
     } else {
+      // Reset form
+      setTitle("")
+      setContent("")
+      setPostType("discussion")
+      setExternalUrl("")
+      setTags("")
+      setShowAuthor(true)
+      setImageUrls([""])
+      setVideoUrls([""])
+      
       onSuccess()
       router.refresh()
     }
@@ -118,18 +137,22 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     setIsSubmitting(false)
   }
 
-  const hasMedia = imageUrls.some(url => url.trim() !== "") || videoUrls.some(url => url.trim() !== "")
-
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="title">Title *</Label>
-        <Input id="title" name="title" placeholder="What's your post about?" required />
+        <Input 
+          id="title" 
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="What's your post about?" 
+          required 
+        />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="postType">Post Type</Label>
-        <Select name="postType" defaultValue="discussion">
+        <Select value={postType} onValueChange={setPostType}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -146,7 +169,8 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         <Label htmlFor="content">Content *</Label>
         <Textarea
           id="content"
-          name="content"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
           placeholder="Share your thoughts, ask a question, or showcase your work..."
           rows={4}
           required
@@ -207,7 +231,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
                           variant="ghost"
                           size="icon"
                           onClick={() => removeImageField(index)}
-                          className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                          className="h-10 w-10 text-muted-foreground hover:text-destructive shrink-0"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -265,7 +289,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
                           variant="ghost"
                           size="icon"
                           onClick={() => removeVideoField(index)}
-                          className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                          className="h-10 w-10 text-muted-foreground hover:text-destructive shrink-0"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -299,17 +323,32 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
         <Label htmlFor="externalUrl">External Link (optional)</Label>
         <div className="relative">
           <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="externalUrl" name="externalUrl" placeholder="https://your-project.com" className="pl-10" />
+          <Input 
+            id="externalUrl" 
+            value={externalUrl}
+            onChange={(e) => setExternalUrl(e.target.value)}
+            placeholder="https://your-project.com" 
+            className="pl-10" 
+          />
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="tags">Tags (comma-separated)</Label>
-        <Input id="tags" name="tags" placeholder="productivity, ai, design" />
+        <Input 
+          id="tags" 
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          placeholder="productivity, ai, design" 
+        />
       </div>
 
       <div className="flex items-center space-x-2">
-        <Switch id="showAuthor" name="showAuthor" defaultChecked />
+        <Switch 
+          id="showAuthor" 
+          checked={showAuthor}
+          onCheckedChange={setShowAuthor}
+        />
         <Label htmlFor="showAuthor">Show my name as the author</Label>
       </div>
 
