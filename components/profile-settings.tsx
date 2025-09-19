@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Camera, Upload, Link as LinkIcon, Crop, RotateCcw, ZoomIn, ZoomOut } from "lucide-react"
+import { Camera, Upload, Link as LinkIcon, Crop, RotateCcw, ZoomIn, ZoomOut, Shield } from "lucide-react"
 import { updateUserProfile } from "@/lib/actions"
 import { useToast } from "@/hooks/use-toast"
 
@@ -165,114 +165,124 @@ export function ProfileSettings({ user, profile }: ProfileSettingsProps) {
               </AvatarFallback>
             </Avatar>
             
-            <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="outline" onClick={() => setShowImageDialog(true)}>
-                  <Camera className="w-4 h-4 mr-2" />
-                  Change Picture
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Update Profile Picture</DialogTitle>
-                </DialogHeader>
-                
-                <Tabs defaultValue="upload" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="upload" type="button">
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload File
-                    </TabsTrigger>
-                    <TabsTrigger value="url" type="button">
-                      <LinkIcon className="w-4 h-4 mr-2" />
-                      Image URL
-                    </TabsTrigger>
-                  </TabsList>
+            <div className="flex-1">
+              <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" onClick={() => setShowImageDialog(true)}>
+                    <Camera className="w-4 h-4 mr-2" />
+                    Change Picture
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Update Profile Picture</DialogTitle>
+                  </DialogHeader>
                   
-                  <TabsContent value="upload" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="image-upload">Choose Image</Label>
-                      <Input
-                        id="image-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileSelect}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Maximum file size: 5MB. Supported formats: JPG, PNG, GIF, WebP
-                      </p>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="url" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="image-url">Image URL</Label>
-                      <div className="flex gap-2">
+                  <Tabs defaultValue="upload" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="upload" type="button">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload File
+                      </TabsTrigger>
+                      <TabsTrigger value="url" type="button">
+                        <LinkIcon className="w-4 h-4 mr-2" />
+                        Image URL
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="upload" className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="image-upload">Choose Image</Label>
                         <Input
-                          id="image-url"
-                          value={imageUrl}
-                          onChange={(e) => setImageUrl(e.target.value)}
-                          placeholder="https://example.com/image.jpg"
+                          id="image-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileSelect}
                         />
-                        <Button type="button" onClick={handleImageUrlSubmit} variant="outline">
-                          Load
+                        <p className="text-xs text-muted-foreground">
+                          Maximum file size: 5MB. Supported formats: JPG, PNG, GIF, WebP
+                        </p>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="url" className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="image-url">Image URL</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="image-url"
+                            value={imageUrl}
+                            onChange={(e) => setImageUrl(e.target.value)}
+                            placeholder="https://example.com/image.jpg"
+                          />
+                          <Button type="button" onClick={handleImageUrlSubmit} variant="outline">
+                            Load
+                          </Button>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <Avatar className="w-24 h-24 mx-auto">
+                          <AvatarImage src={imagePreview} />
+                          <AvatarFallback>Preview</AvatarFallback>
+                        </Avatar>
+                      </div>
+                      
+                      {/* Simple editing tools placeholder */}
+                      <div className="flex justify-center gap-2">
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          <Crop className="w-4 h-4" />
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          <ZoomIn className="w-4 h-4" />
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          <ZoomOut className="w-4 h-4" />
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Advanced editing tools coming soon
+                      </p>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                  )}
 
-                {/* Image Preview */}
-                {imagePreview && (
-                  <div className="space-y-4">
-                    <div className="text-center">
-                      <Avatar className="w-24 h-24 mx-auto">
-                        <AvatarImage src={imagePreview} />
-                        <AvatarFallback>Preview</AvatarFallback>
-                      </Avatar>
-                    </div>
-                    
-                    {/* Simple editing tools placeholder */}
-                    <div className="flex justify-center gap-2">
-                      <Button type="button" variant="outline" size="sm" disabled>
-                        <Crop className="w-4 h-4" />
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" disabled>
-                        <RotateCcw className="w-4 h-4" />
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" disabled>
-                        <ZoomIn className="w-4 h-4" />
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" disabled>
-                        <ZoomOut className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                      Advanced editing tools coming soon
-                    </p>
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetImageDialog}
+                      className="flex-1"
+                    >
+                      Reset
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleImageSave}
+                      disabled={!imagePreview || imageLoading}
+                      className="flex-1"
+                    >
+                      {imageLoading ? "Saving..." : "Save Image"}
+                    </Button>
                   </div>
-                )}
+                </DialogContent>
+              </Dialog>
 
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={resetImageDialog}
-                    className="flex-1"
-                  >
-                    Reset
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleImageSave}
-                    disabled={!imagePreview || imageLoading}
-                    className="flex-1"
-                  >
-                    {imageLoading ? "Saving..." : "Save Image"}
-                  </Button>
+              {/* Verification Status */}
+              {profile?.is_verified && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Shield className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-600 font-medium">Verified</span>
                 </div>
-              </DialogContent>
-            </Dialog>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
