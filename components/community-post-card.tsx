@@ -208,9 +208,6 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     </div>
   </div>
 )}
-                </div>
-              </div>
-            )}
           </div>
 
           {post.tags && post.tags.length > 0 && (
