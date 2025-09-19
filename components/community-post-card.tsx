@@ -10,6 +10,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuthorProfileModal } from "./author-profile-modal"
 import { likeCommunityPost } from "@/lib/actions"
+import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
@@ -84,6 +85,28 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [showAuthorModal, setShowAuthorModal] = useState(false)
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
+  const [authorProfileImage, setAuthorProfileImage] = useState<string>("")
+
+  const supabase = createClient()
+
+  // Fetch author's profile image
+  useEffect(() => {
+    const fetchAuthorProfile = async () => {
+      if (post.author_id && post.show_author) {
+        const { data } = await supabase
+          .from("users")
+          .select("profile_image")
+          .eq("id", post.author_id)
+          .single()
+        
+        if (data?.profile_image) {
+          setAuthorProfileImage(data.profile_image)
+        }
+      }
+    }
+
+    fetchAuthorProfile()
+  }, [post.author_id, post.show_author])
 
   // Parse media URLs from the database
   let images: string[] = []
@@ -194,6 +217,15 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     return date.toLocaleDateString()
   }
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   // Set initial active tab based on available media
   useEffect(() => {
     if (images.length > 0 && videos.length === 0) {
@@ -229,10 +261,10 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
 
             <div className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
-                <AvatarImage src={post.author_profile_picture || "/placeholder.svg"} />
+                <AvatarImage src={authorProfileImage || "/placeholder.svg"} />
                 <AvatarFallback className="text-xs">
                   {post.show_author && post.author_name ? (
-                    post.author_name.charAt(0).toUpperCase()
+                    getInitials(post.author_name)
                   ) : (
                     <User className="h-3 w-3" />
                   )}
@@ -285,10 +317,10 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     {/* Only show tabs if both images and videos exist */}
                     {images.length > 0 && videos.length > 0 && (
                       <TabsList className="grid w-full grid-cols-2 mb-3">
-                        <TabsTrigger value="images" className="text-xs">
+                        <TabsTrigger value="images" type="button" className="text-xs">
                           Images ({images.length})
                         </TabsTrigger>
-                        <TabsTrigger value="videos" className="text-xs">
+                        <TabsTrigger value="videos" type="button" className="text-xs">
                           Videos ({videos.length})
                         </TabsTrigger>
                       </TabsList>
