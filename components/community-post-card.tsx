@@ -1,16 +1,26 @@
 "use client"
 
-import { useState } from "react"
-import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User, X, ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuthorProfileModal } from "./author-profile-modal"
 import { likeCommunityPost } from "@/lib/actions"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+
+interface CommunityPostMedia {
+  id: string
+  post_id: string
+  media_url: string
+  media_type: 'image' | 'video'
+  display_order: number
+  created_at: string
+}
 
 interface CommunityPost {
   id: string
@@ -20,7 +30,6 @@ interface CommunityPost {
   author_id?: string
   author_name: string | null
   show_author: boolean
-  image_url: string | null
   external_url: string | null
   tags: string[]
   is_pinned: boolean
@@ -30,6 +39,7 @@ interface CommunityPost {
   created_at: string
   user_has_liked?: boolean
   author_profile_picture?: string
+  media?: CommunityPostMedia[]
 }
 
 interface CommunityPostCardProps {
@@ -37,21 +47,57 @@ interface CommunityPostCardProps {
   isAuthenticated?: boolean
 }
 
+// Function to check if URL is YouTube
+const isYouTubeUrl = (url: string) => {
+  return /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/.test(url)
+}
+
+// Function to check if URL is Vimeo
+const isVimeoUrl = (url: string) => {
+  return /(?:vimeo\.com\/)([0-9]+)/.test(url)
+}
+
+// Function to generate embed URL
+const getEmbedUrl = (url: string) => {
+  // YouTube
+  const youtubeMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
+  if (youtubeMatch) {
+    return `https://www.youtube.com/embed/${youtubeMatch[1]}?rel=0`
+  }
+  
+  // Vimeo
+  const vimeoMatch = url.match(/(?:vimeo\.com\/)([0-9]+)/)
+  if (vimeoMatch) {
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}`
+  }
+  
+  return url // Return original URL for direct video files
+}
+
+// Function to get video thumbnail
+const getVideoThumbnail = (url: string) => {
+  const youtubeMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
+  if (youtubeMatch) {
+    return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`
+  }
+  return null
+}
+
 export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardProps) {
   const [liked, setLiked] = useState(post.user_has_liked || false)
   const [likeCount, setLikeCount] = useState(post.like_count)
   const [isLiking, setIsLiking] = useState(false)
   const [showAuthorModal, setShowAuthorModal] = useState(false)
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
+  const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
 
-  // If image_url is a string, convert it to an array
-  const images = post.image_url 
-    ? (Array.isArray(post.image_url) ? post.image_url : [post.image_url])
-    : []
+  // Separate images and videos from media
+  const images = post.media?.filter(m => m.media_type === 'image').sort((a, b) => a.display_order - b.display_order) || []
+  const videos = post.media?.filter(m => m.media_type === 'video').sort((a, b) => a.display_order - b.display_order) || []
+  const allMedia = post.media?.sort((a, b) => a.display_order - b.display_order) || []
 
   const handleLike = async () => {
     if (!isAuthenticated) {
-      // Redirect to login or show login modal
       return
     }
 
@@ -72,23 +118,23 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     }
   }
 
-  const openImageModal = (index: number) => {
-    setSelectedImageIndex(index)
+  const openMediaModal = (index: number) => {
+    setSelectedMediaIndex(index)
   }
 
-  const closeImageModal = () => {
-    setSelectedImageIndex(null)
+  const closeMediaModal = () => {
+    setSelectedMediaIndex(null)
   }
 
-  const goToNextImage = () => {
-    if (selectedImageIndex !== null) {
-      setSelectedImageIndex((selectedImageIndex + 1) % images.length)
+  const goToNextMedia = () => {
+    if (selectedMediaIndex !== null) {
+      setSelectedMediaIndex((selectedMediaIndex + 1) % allMedia.length)
     }
   }
 
-  const goToPrevImage = () => {
-    if (selectedImageIndex !== null) {
-      setSelectedImageIndex((selectedImageIndex - 1 + images.length) % images.length)
+  const goToPrevMedia = () => {
+    if (selectedMediaIndex !== null) {
+      setSelectedMediaIndex((selectedMediaIndex - 1 + allMedia.length) % allMedia.length)
     }
   }
 
@@ -117,6 +163,19 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`
     return date.toLocaleDateString()
   }
+
+  const hasMedia = images.length > 0 || videos.length > 0
+
+  // Set initial active tab based on available media
+  useEffect(() => {
+    if (images.length > 0 && videos.length === 0) {
+      setActiveMediaTab('images')
+    } else if (videos.length > 0 && images.length === 0) {
+      setActiveMediaTab('videos')
+    } else if (images.length > 0) {
+      setActiveMediaTab('images')
+    }
+  }, [images.length, videos.length])
 
   return (
     <>
@@ -166,58 +225,143 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
         </CardHeader>
 
         <CardContent className="pt-0">
-          {/* Content with improved image gallery layout */}
+          {/* Content and Media Layout */}
           <div className={cn(
             "flex flex-col gap-4 mb-4",
-            images.length > 0 && "md:flex-row md:gap-6"
+            hasMedia && "md:flex-row md:gap-6"
           )}>
             {/* Text content */}
             <div className={cn(
               "flex-1 min-w-0",
-              images.length > 0 && "md:flex-[3]"
+              hasMedia && "md:flex-[3]"
             )}>
               <p className="text-muted-foreground leading-relaxed">{post.content}</p>
             </div>
             
-            {/* Image gallery - bigger for desktop */}
-            {images.length > 0 && (
+            {/* Media Gallery */}
+            {hasMedia && (
               <div className={cn(
                 "flex-shrink-0",
-                images.length > 0 && "md:flex-[2] md:max-w-md"
+                hasMedia && "md:flex-[2] md:max-w-md"
               )}>
-                <div className={cn(
-                  "grid gap-3",
-                  images.length === 1 
-                    ? "grid-cols-1" 
-                    : images.length === 2 
-                      ? "grid-cols-2 md:grid-cols-1" 
-                      : images.length === 3
-                        ? "grid-cols-2 md:grid-cols-2"
-                        : "grid-cols-2"
-                )}>
-                  {images.map((image, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300",
+                <Tabs value={activeMediaTab} onValueChange={(value) => setActiveMediaTab(value as 'images' | 'videos')} className="w-full">
+                  {/* Only show tabs if both images and videos exist */}
+                  {images.length > 0 && videos.length > 0 && (
+                    <TabsList className="grid w-full grid-cols-2 mb-3">
+                      <TabsTrigger value="images" className="text-xs">
+                        Images ({images.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="videos" className="text-xs">
+                        Videos ({videos.length})
+                      </TabsTrigger>
+                    </TabsList>
+                  )}
+                  
+                  <TabsContent value="images" className={images.length === 0 ? "hidden" : ""}>
+                    {images.length > 0 && (
+                      <div className={cn(
+                        "grid gap-3",
                         images.length === 1 
-                          ? "aspect-video md:min-h-[200px]" 
-                          : images.length === 2
-                            ? "aspect-square md:aspect-video md:min-h-[150px]"
-                            : "aspect-square md:min-h-[120px]",
-                        "w-full"
-                      )}
-                      onClick={() => openImageModal(index)}
-                    >
-                      <img
-                        src={image || "/placeholder.svg"}
-                        alt={`Post image ${index + 1}`}
-                        className="h-full w-full object-cover transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    </div>
-                  ))}
-                </div>
+                          ? "grid-cols-1" 
+                          : images.length === 2 
+                            ? "grid-cols-2 md:grid-cols-1" 
+                            : images.length === 3
+                              ? "grid-cols-2 md:grid-cols-2"
+                              : "grid-cols-2"
+                      )}>
+                        {images.map((media, index) => (
+                          <div
+                            key={media.id}
+                            className={cn(
+                              "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300",
+                              images.length === 1 
+                                ? "aspect-video md:min-h-[200px]" 
+                                : images.length === 2
+                                  ? "aspect-square md:aspect-video md:min-h-[150px]"
+                                  : "aspect-square md:min-h-[120px]",
+                              "w-full"
+                            )}
+                            onClick={() => openMediaModal(allMedia.findIndex(m => m.id === media.id))}
+                          >
+                            <img
+                              src={media.media_url || "/placeholder.svg"}
+                              alt={`Post image ${index + 1}`}
+                              className="h-full w-full object-cover transition-transform duration-300"
+                              loading="lazy"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="videos" className={videos.length === 0 ? "hidden" : ""}>
+                    {videos.length > 0 && (
+                      <div className={cn(
+                        "grid gap-3",
+                        videos.length === 1 
+                          ? "grid-cols-1" 
+                          : videos.length === 2 
+                            ? "grid-cols-2 md:grid-cols-1" 
+                            : "grid-cols-2"
+                      )}>
+                        {videos.map((media, index) => (
+                          <div
+                            key={media.id}
+                            className={cn(
+                              "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300 relative group",
+                              videos.length === 1 
+                                ? "aspect-video md:min-h-[200px]" 
+                                : "aspect-video md:min-h-[150px]",
+                              "w-full"
+                            )}
+                            onClick={() => openMediaModal(allMedia.findIndex(m => m.id === media.id))}
+                          >
+                            {/* Video Thumbnail */}
+                            {isYouTubeUrl(media.media_url) ? (
+                              <div className="relative h-full w-full">
+                                <img
+                                  src={getVideoThumbnail(media.media_url) || "/placeholder.svg"}
+                                  alt={`Video ${index + 1}`}
+                                  className="h-full w-full object-cover transition-transform duration-300"
+                                  loading="lazy"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                                  <div className="bg-red-600 text-white rounded-full p-3">
+                                    <Play className="h-6 w-6 fill-current" />
+                                  </div>
+                                </div>
+                              </div>
+                            ) : isVimeoUrl(media.media_url) ? (
+                              <div className="relative h-full w-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                <div className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3">
+                                  <Play className="h-6 w-6 fill-current" />
+                                </div>
+                                <div className="absolute bottom-2 right-2 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded">
+                                  Vimeo
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="relative h-full w-full">
+                                <video
+                                  src={media.media_url}
+                                  className="h-full w-full object-cover"
+                                  preload="metadata"
+                                  muted
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                                  <div className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3">
+                                    <Play className="h-6 w-6 fill-current" />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </div>
             )}
           </div>
@@ -273,27 +417,27 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
         </CardContent>
       </Card>
 
-      {/* Image Modal */}
-      <Dialog open={selectedImageIndex !== null} onOpenChange={(open) => !open && closeImageModal()}>
+      {/* Media Modal */}
+      <Dialog open={selectedMediaIndex !== null} onOpenChange={(open) => !open && closeMediaModal()}>
         <DialogContent className="max-w-4xl p-0 bg-transparent border-none">
-          {selectedImageIndex !== null && (
+          {selectedMediaIndex !== null && allMedia[selectedMediaIndex] && (
             <div className="relative">
               <Button
                 variant="ghost"
                 size="icon"
                 className="absolute top-4 right-4 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70"
-                onClick={closeImageModal}
+                onClick={closeMediaModal}
               >
                 <X className="h-6 w-6" />
               </Button>
               
-              {images.length > 1 && (
+              {allMedia.length > 1 && (
                 <>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="absolute left-4 top-1/2 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 -translate-y-1/2"
-                    onClick={goToPrevImage}
+                    onClick={goToPrevMedia}
                   >
                     <ChevronLeft className="h-6 w-6" />
                   </Button>
@@ -301,7 +445,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     variant="ghost"
                     size="icon"
                     className="absolute right-4 top-1/2 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 -translate-y-1/2"
-                    onClick={goToNextImage}
+                    onClick={goToNextMedia}
                   >
                     <ChevronRight className="h-6 w-6" />
                   </Button>
@@ -309,20 +453,41 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
               )}
               
               <div className="flex items-center justify-center h-[80vh]">
-                <img
-                  src={images[selectedImageIndex] || "/placeholder.svg"}
-                  alt={`Post image ${selectedImageIndex + 1}`}
-                  className="max-h-full max-w-full object-contain rounded-lg"
-                />
+                {allMedia[selectedMediaIndex].media_type === 'image' ? (
+                  <img
+                    src={allMedia[selectedMediaIndex].media_url || "/placeholder.svg"}
+                    alt={`Post media ${selectedMediaIndex + 1}`}
+                    className="max-h-full max-w-full object-contain rounded-lg"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    {isYouTubeUrl(allMedia[selectedMediaIndex].media_url) || isVimeoUrl(allMedia[selectedMediaIndex].media_url) ? (
+                      <iframe
+                        src={getEmbedUrl(allMedia[selectedMediaIndex].media_url)}
+                        className="w-full h-full max-w-4xl max-h-[80vh] rounded-lg"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video
+                        src={allMedia[selectedMediaIndex].media_url}
+                        className="max-h-full max-w-full object-contain rounded-lg"
+                        controls
+                        autoPlay
+                      />
+                    )}
+                  </div>
+                )}
               </div>
               
-              {images.length > 1 && (
+              {allMedia.length > 1 && (
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-                  {images.map((_, index) => (
+                  {allMedia.map((media, index) => (
                     <div
-                      key={index}
+                      key={media.id}
                       className={`h-2 w-2 rounded-full ${
-                        index === selectedImageIndex ? "bg-white" : "bg-white/50"
+                        index === selectedMediaIndex ? "bg-white" : "bg-white/50"
                       }`}
                     />
                   ))}
