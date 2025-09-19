@@ -67,6 +67,7 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
   const [showAuthor, setShowAuthor] = useState<boolean>(true)
   const [urls, setUrls] = useState<string[]>([""])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [categorySelectValue, setCategorySelectValue] = useState<string>("")
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -96,8 +97,9 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   const addCategory = (categoryId: string) => {
-    if (!selectedCategories.includes(categoryId)) {
+    if (categoryId && !selectedCategories.includes(categoryId)) {
       setSelectedCategories([...selectedCategories, categoryId])
+      setCategorySelectValue("") // Reset the select value
     }
   }
 
@@ -107,7 +109,7 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
 
   useEffect(() => {
     async function fetchCategories() {
-      const { data, error } = await supabase().from("categories").select("id, name, slug").order("name")
+      const { data, error } = await supabase.from("categories").select("id, name, slug").order("name")
 
       if (error) {
         console.error("Error fetching categories:", error)
@@ -152,6 +154,7 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
         setShowAuthor(true)
         setUrls([""])
         setSelectedCategories([])
+        setCategorySelectValue("")
         setFormData({
           name: "",
           description: "",
@@ -233,13 +236,20 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
 
       <div className="space-y-2">
         <Label>Categories</Label>
-        <Select onValueChange={addCategory}>
+        <Select value={categorySelectValue} onValueChange={(value) => {
+          setCategorySelectValue(value)
+          addCategory(value)
+        }}>
           <SelectTrigger>
             <SelectValue placeholder="Select categories" />
           </SelectTrigger>
           <SelectContent className="max-h-[200px] overflow-y-auto">
             {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id} disabled={selectedCategories.includes(category.id)}>
+              <SelectItem 
+                key={category.id} 
+                value={category.id} 
+                disabled={selectedCategories.includes(category.id)}
+              >
                 {category.name}
               </SelectItem>
             ))}
@@ -252,7 +262,15 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
               return category ? (
                 <Badge key={categoryId} variant="secondary" className="flex items-center gap-1">
                   {category.name}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => removeCategory(categoryId)} />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 ml-1 hover:bg-transparent"
+                    onClick={() => removeCategory(categoryId)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </Badge>
               ) : null
             })}
