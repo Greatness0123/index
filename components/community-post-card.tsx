@@ -120,7 +120,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
 
   return (
     <>
-      <Card className="hover:shadow-md transition-shadow duration-200">
+      <Card className="hover:shadow-md transition-shadow duration-200 overflow-hidden">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3 flex-1">
@@ -168,8 +168,8 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
         <CardContent className="pt-0">
           {/* Content with image gallery */}
           <div className={cn(
-            "flex flex-col lg:flex-row gap-4 mb-4",
-            images.length > 0 && "items-start"
+            "flex flex-col gap-4 mb-4",
+            images.length > 0 && "lg:flex-row lg:items-start"
           )}>
             {/* Text content */}
             <div className={cn(
@@ -179,35 +179,39 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
               <p className="text-muted-foreground">{post.content}</p>
             </div>
             
-            {/* Image gallery - appears beside text on large screens, below on small screens */}
-           {images.length > 0 && (
-  <div className="lg:w-80 lg:mr-4 flex-shrink-0"> {/* Using margin-right instead */}
-    <div className={cn(
-      "grid gap-2",
-      images.length === 1 ? "grid-cols-1" : "grid-cols-2"
-    )}>
-      {images.map((image, index) => (
-        <div
-          key={index}
-          className={cn(
-            "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
-            images.length === 1 
-              ? "aspect-video lg:min-h-72" // Even taller for single images
-              : "aspect-square lg:min-h-36", // Taller for grid images
-            "lg:max-w-none"
-          )}
-          onClick={() => openImageModal(index)}
-        >
-          <img
-            src={image || "/placeholder.svg"}
-            alt={`Post image ${index + 1}`}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+            {/* Image gallery */}
+            {images.length > 0 && (
+              <div className={cn(
+                "flex-shrink-0",
+                images.length > 0 && "lg:w-64" // Reduced width for better fit
+              )}>
+                <div className={cn(
+                  "grid gap-2",
+                  images.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                )}>
+                  {images.map((image, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
+                        images.length === 1 
+                          ? "aspect-video" 
+                          : "aspect-square",
+                        "w-full" // Ensure full width within container
+                      )}
+                      onClick={() => openImageModal(index)}
+                    >
+                      <img
+                        src={image || "/placeholder.svg"}
+                        alt={`Post image ${index + 1}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {post.tags && post.tags.length > 0 && (
