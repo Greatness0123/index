@@ -13,15 +13,6 @@ import { likeCommunityPost } from "@/lib/actions"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
-interface CommunityPostMedia {
-  id: string
-  post_id: string
-  media_url: string
-  media_type: 'image' | 'video'
-  display_order: number
-  created_at: string
-}
-
 interface CommunityPost {
   id: string
   title: string
@@ -39,7 +30,10 @@ interface CommunityPost {
   created_at: string
   user_has_liked?: boolean
   author_profile_picture?: string
-  community_post_media: CommunityPostMedia[] // This should match the Supabase query
+  image_urls?: string | string[] | null
+  video_urls?: string | string[] | null
+  images?: string[]
+  videos?: string[]
 }
 
 interface CommunityPostCardProps {
@@ -91,13 +85,46 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
 
-  // Get media from community_post_media
-  const allMedia = post.community_post_media?.sort((a, b) => a.display_order - b.display_order) || []
-  const images = allMedia.filter(m => m.media_type === 'image')
-  const videos = allMedia.filter(m => m.media_type === 'video')
-  const hasMedia = images.length > 0 || videos.length > 0
+  // Parse media URLs from the database
+  let images: string[] = []
+  let videos: string[] = []
 
-  console.log('Post media:', { allMedia, images, videos, hasMedia }) // Debug log
+  // Handle different possible formats of media URLs
+  if (post.images && Array.isArray(post.images)) {
+    images = post.images
+  } else if (post.image_urls) {
+    try {
+      if (typeof post.image_urls === 'string') {
+        images = JSON.parse(post.image_urls)
+      } else if (Array.isArray(post.image_urls)) {
+        images = post.image_urls
+      }
+    } catch {
+      images = []
+    }
+  }
+
+  if (post.videos && Array.isArray(post.videos)) {
+    videos = post.videos
+  } else if (post.video_urls) {
+    try {
+      if (typeof post.video_urls === 'string') {
+        videos = JSON.parse(post.video_urls)
+      } else if (Array.isArray(post.video_urls)) {
+        videos = post.video_urls
+      }
+    } catch {
+      videos = []
+    }
+  }
+
+  // Combine all media for modal navigation
+  const allMedia = [
+    ...images.map(url => ({ url, type: 'image' as const })),
+    ...videos.map(url => ({ url, type: 'video' as const }))
+  ]
+  
+  const hasMedia = images.length > 0 || videos.length > 0
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -130,13 +157,13 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   }
 
   const goToNextMedia = () => {
-    if (selectedMediaIndex !== null) {
+    if (selectedMediaIndex !== null && allMedia.length > 0) {
       setSelectedMediaIndex((selectedMediaIndex + 1) % allMedia.length)
     }
   }
 
   const goToPrevMedia = () => {
-    if (selectedMediaIndex !== null) {
+    if (selectedMediaIndex !== null && allMedia.length > 0) {
       setSelectedMediaIndex((selectedMediaIndex - 1 + allMedia.length) % allMedia.length)
     }
   }
@@ -271,9 +298,9 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                               ? "grid-cols-2 md:grid-cols-2"
                               : "grid-cols-2"
                       )}>
-                        {images.map((media, index) => (
+                        {images.map((imageUrl, index) => (
                           <div
-                            key={media.id}
+                            key={index}
                             className={cn(
                               "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300",
                               images.length === 1 
@@ -283,10 +310,10 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                                   : "aspect-square md:min-h-[120px]",
                               "w-full"
                             )}
-                            onClick={() => openMediaModal(allMedia.findIndex(m => m.id === media.id))}
+                            onClick={() => openMediaModal(index)}
                           >
                             <img
-                              src={media.media_url || "/placeholder.svg"}
+                              src={imageUrl || "/placeholder.svg"}
                               alt={`Post image ${index + 1}`}
                               className="h-full w-full object-cover transition-transform duration-300"
                               loading="lazy"
@@ -311,9 +338,9 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                             ? "grid-cols-2 md:grid-cols-1" 
                             : "grid-cols-2"
                       )}>
-                        {videos.map((media, index) => (
+                        {videos.map((videoUrl, index) => (
                           <div
-                            key={media.id}
+                            key={index}
                             className={cn(
                               "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300 relative group",
                               videos.length === 1 
@@ -321,13 +348,13 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                                 : "aspect-video md:min-h-[150px]",
                               "w-full"
                             )}
-                            onClick={() => openMediaModal(allMedia.findIndex(m => m.id === media.id))}
+                            onClick={() => openMediaModal(images.length + index)}
                           >
                             {/* Video Thumbnail */}
-                            {isYouTubeUrl(media.media_url) ? (
+                            {isYouTubeUrl(videoUrl) ? (
                               <div className="relative h-full w-full">
                                 <img
-                                  src={getVideoThumbnail(media.media_url) || "/placeholder.svg"}
+                                  src={getVideoThumbnail(videoUrl) || "/placeholder.svg"}
                                   alt={`Video ${index + 1}`}
                                   className="h-full w-full object-cover transition-transform duration-300"
                                   loading="lazy"
@@ -341,7 +368,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                                   </div>
                                 </div>
                               </div>
-                            ) : isVimeoUrl(media.media_url) ? (
+                            ) : isVimeoUrl(videoUrl) ? (
                               <div className="relative h-full w-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                                 <div className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3">
                                   <Play className="h-6 w-6 fill-current" />
@@ -353,7 +380,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                             ) : (
                               <div className="relative h-full w-full">
                                 <video
-                                  src={media.media_url}
+                                  src={videoUrl}
                                   className="h-full w-full object-cover"
                                   preload="metadata"
                                   muted
@@ -377,8 +404,8 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
 
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-4">
-              {post.tags.slice(0, 4).map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
+              {post.tags.slice(0, 4).map((tag, index) => (
+                <Badge key={index} variant="secondary" className="text-xs">
                   #{tag}
                 </Badge>
               ))}
@@ -462,9 +489,9 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
               )}
               
               <div className="flex items-center justify-center h-[80vh]">
-                {allMedia[selectedMediaIndex].media_type === 'image' ? (
+                {allMedia[selectedMediaIndex].type === 'image' ? (
                   <img
-                    src={allMedia[selectedMediaIndex].media_url || "/placeholder.svg"}
+                    src={allMedia[selectedMediaIndex].url || "/placeholder.svg"}
                     alt={`Post media ${selectedMediaIndex + 1}`}
                     className="max-h-full max-w-full object-contain rounded-lg"
                     onError={(e) => {
@@ -473,9 +500,9 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    {isYouTubeUrl(allMedia[selectedMediaIndex].media_url) || isVimeoUrl(allMedia[selectedMediaIndex].media_url) ? (
+                    {isYouTubeUrl(allMedia[selectedMediaIndex].url) || isVimeoUrl(allMedia[selectedMediaIndex].url) ? (
                       <iframe
-                        src={getEmbedUrl(allMedia[selectedMediaIndex].media_url)}
+                        src={getEmbedUrl(allMedia[selectedMediaIndex].url)}
                         className="w-full h-full max-w-4xl max-h-[80vh] rounded-lg"
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -483,7 +510,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                       />
                     ) : (
                       <video
-                        src={allMedia[selectedMediaIndex].media_url}
+                        src={allMedia[selectedMediaIndex].url}
                         className="max-h-full max-w-full object-contain rounded-lg"
                         controls
                         autoPlay
@@ -495,9 +522,9 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
               
               {allMedia.length > 1 && (
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-                  {allMedia.map((media, index) => (
+                  {allMedia.map((_, index) => (
                     <div
-                      key={media.id}
+                      key={index}
                       className={`h-2 w-2 rounded-full ${
                         index === selectedMediaIndex ? "bg-white" : "bg-white/50"
                       }`}
