@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { supabase } from "@/lib/supabase/client"
 import { revalidatePath } from "next/cache"
 
 export async function signIn(prevState: any, formData: FormData) {
@@ -221,7 +222,7 @@ export async function submitComment(toolId: string, content: string, rating: num
         user_id: user.id,
         content: content.trim(),
         rating,
-        is_approved: true,
+        is_approved: true, // Set to false if you need moderation
       })
       .select(`
         id,
@@ -251,7 +252,9 @@ export async function submitComment(toolId: string, content: string, rating: num
       console.error("Error updating tool statistics:", statsError)
     }
 
+    // This is crucial for refreshing the page
     revalidatePath(`/tools/${toolId}`)
+    
     return { success: "Comment submitted successfully!" }
   } catch (error) {
     console.error("Error submitting comment:", error)
@@ -370,6 +373,7 @@ export async function toggleFavorite(toolId: string) {
   }
 }
 
+// Add this function to your existing actions.ts
 export async function getComments(toolId: string, userId?: string) {
   try {
     const supabaseClient = await createClient()
@@ -418,7 +422,7 @@ export async function getComments(toolId: string, userId?: string) {
     const transformedComments = (commentsData || []).map(comment => ({
       ...comment,
       user_vote: userVotes[comment.id] || null,
-      total_votes: comment.helpful_count
+      total_votes: comment.helpful_count // Adjust if you have a different way to track total votes
     }))
 
     return { comments: transformedComments }
@@ -427,7 +431,6 @@ export async function getComments(toolId: string, userId?: string) {
     return { error: "An unexpected error occurred" }
   }
 }
-
 export async function trackToolView(toolId: string, userId?: string) {
   try {
     const supabaseClient = await createClient()
@@ -437,6 +440,7 @@ export async function trackToolView(toolId: string, userId?: string) {
       user_id: userId || null,
     })
 
+    // Update tool stats will be handled by database trigger
     return { success: true }
   } catch (error) {
     console.error("Error tracking view:", error)
@@ -495,7 +499,7 @@ export async function deleteTool(toolId: string) {
       return { error: "You can only delete tools you submitted" }
     }
 
-    // Delete related data first
+    // Delete related data first (foreign key constraints)
     await Promise.all([
       supabaseClient.from("tool_screenshots").delete().eq("tool_id", toolId),
       supabaseClient.from("tool_tags").delete().eq("tool_id", toolId),
@@ -536,7 +540,7 @@ export async function updateUserProfile(profileData: {
 
     const {
       data: { user },
-  error: authError,
+      error: authError,
     } = await supabaseClient.auth.getUser()
 
     if (authError || !user) {
@@ -573,7 +577,7 @@ export async function createCommunityPost(formData: FormData) {
   const title = formData.get("title") as string
   const content = formData.get("content") as string
   const postType = formData.get("postType") as string
-  const imageUrls = formData.get("imageUrls") as string // Comma-separated string
+  const imageUrl = formData.get("imageUrl") as string
   const externalUrl = formData.get("externalUrl") as string
   const tags = formData.get("tags") as string
   const showAuthor = formData.get("showAuthor") === "true"
@@ -600,10 +604,12 @@ export async function createCommunityPost(formData: FormData) {
       .select("display_name, full_name")
       .eq("id", user.id)
       .single()
-
+    
+     const showAuthor = userProfile?.show_as_author !== false
     const authorName = showAuthor
       ? userProfile?.display_name || userProfile?.full_name || user.email?.split("@")[0] || "Anonymous"
       : null
+
 
     const tagsArray = tags
       ? tags
@@ -611,17 +617,6 @@ export async function createCommunityPost(formData: FormData) {
           .map((tag) => tag.trim())
           .filter(Boolean)
       : []
-
-    // Process multiple image URLs
-    const imageUrlArray = imageUrls
-      ? imageUrls
-          .split(",")
-          .map((url) => url.trim())
-          .filter(Boolean)
-      : []
-
-    // Use the first image as the main image if available
-    const mainImageUrl = imageUrlArray.length > 0 ? imageUrlArray[0] : null
 
     const { data, error } = await supabaseClient
       .from("community_posts")
@@ -632,10 +627,9 @@ export async function createCommunityPost(formData: FormData) {
         author_id: user.id,
         author_name: authorName,
         show_author: showAuthor,
-        image_url: mainImageUrl,
+        image_url: imageUrl || null,
         external_url: externalUrl || null,
         tags: tagsArray,
-        all_images: imageUrlArray.length > 0 ? imageUrlArray : null,
       })
       .select()
       .single()
@@ -643,24 +637,6 @@ export async function createCommunityPost(formData: FormData) {
     if (error) {
       console.error("Error creating community post:", error)
       return { error: "Failed to create post" }
-    }
-
-    // If you have a separate table for post images, insert them here
-    if (imageUrlArray.length > 0 && data) {
-      const imageData = imageUrlArray.map((url, index) => ({
-        post_id: data.id,
-        image_url: url,
-        display_order: index,
-        created_at: new Date().toISOString(),
-      }))
-
-      const { error: imageError } = await supabaseClient
-        .from("post_images")
-        .insert(imageData)
-
-      if (imageError) {
-        console.error("Error inserting post images:", imageError)
-      }
     }
 
     revalidatePath("/community")
@@ -923,6 +899,82 @@ export async function deleteCommunityComment(commentId: string) {
   }
 }
 
+export async function copyCommentText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    return { success: "Comment copied to clipboard!" }
+  } catch (error) {
+    console.error("Error copying comment:", error)
+    return { error: "Failed to copy comment" }
+  }
+}
+
+async function updateToolStatsSimple(toolId: string) {
+  try {
+    // Get comment count
+    const { count: commentCount } = await supabase
+      .from("comments")
+      .select("*", { count: "exact", head: true })
+      .eq("tool_id", toolId)
+      .eq("is_approved", true)
+
+    // Get favorite count
+    const { count: favoriteCount } = await supabase
+      .from("user_favorites")
+      .select("*", { count: "exact", head: true })
+      .eq("tool_id", toolId)
+
+    // Update or insert tool stats
+    const { error: statsError } = await supabase.from("tool_stats").upsert({
+      tool_id: toolId,
+      comment_count: commentCount || 0,
+      favorite_count: favoriteCount || 0,
+      updated_at: new Date().toISOString(),
+    })
+
+    if (statsError) {
+      console.error("Error updating tool stats:", statsError)
+    }
+
+    // Calculate and update average rating
+    const { data: ratings } = await supabase
+      .from("comments")
+      .select("rating")
+      .eq("tool_id", toolId)
+      .eq("is_approved", true)
+      .not("rating", "is", null)
+
+    if (ratings && ratings.length > 0) {
+      const validRatings = ratings.map((r) => r.rating).filter((r) => r !== null)
+      if (validRatings.length > 0) {
+        const averageRating = validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length
+
+        const { error: toolUpdateError } = await supabase
+          .from("tools")
+          .update({
+            rating: Math.round(averageRating * 10) / 10,
+            rating_count: validRatings.length,
+          })
+          .eq("id", toolId)
+
+        if (toolUpdateError) {
+          console.error("Error updating tool rating:", toolUpdateError)
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error updating tool stats:", error)
+  }
+}
+
+async function updateToolStatsManually(toolId: string) {
+  await updateToolStatsSimple(toolId)
+}
+
+async function updateToolStats(toolId: string) {
+  await updateToolStatsSimple(toolId)
+}
+// Add this to your existing actions.ts file
 export async function deleteCommunityPost(postId: string) {
   try {
     const supabaseClient = await createClient()
@@ -951,12 +1003,11 @@ export async function deleteCommunityPost(postId: string) {
       return { error: "You can only delete your own posts" }
     }
 
-    // Delete related data first
+    // Delete related data first (foreign key constraints)
     await Promise.all([
       supabaseClient.from("community_comments").delete().eq("post_id", postId),
       supabaseClient.from("community_post_likes").delete().eq("post_id", postId),
       supabaseClient.from("community_comment_likes").delete().eq("post_id", postId),
-      supabaseClient.from("post_images").delete().eq("post_id", postId),
     ])
 
     // Delete the post
@@ -975,31 +1026,3 @@ export async function deleteCommunityPost(postId: string) {
     return { error: "An unexpected error occurred" }
   }
 }
-
-export async function getPostImages(postId: string) {
-  try {
-    const supabaseClient = await createClient()
-    
-    const { data, error } = await supabaseClient
-      .from("post_images")
-      .select("*")
-      .eq("post_id", postId)
-      .order("display_order", { ascending: true })
-    
-    if (error) {
-      console.error("Error fetching post images:", error)
-      return { error: "Failed to fetch post images" }
-    }
-    
-    return { images: data }
-  } catch (error) {
-    console.error("Error in getPostImages:", error)
-    return { error: "An unexpected error occurred" }
-  }
-}
-
-// Remove unused functions
-// async function updateToolStatsSimple(toolId: string) { ... }
-// async function updateToolStatsManually(toolId: string) { ... }
-// async function updateToolStats(toolId: string) { ... }
-// export async function copyCommentText(text: string) { ... }
