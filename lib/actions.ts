@@ -559,7 +559,7 @@ export async function updateUserProfile(profileData: {
   }
 }
 
-// NEW FUNCTION: Fetch community posts with media
+// UPDATED FUNCTION: Fetch community posts with media URLs stored directly in posts
 export async function getCommunityPosts() {
   try {
     const supabaseClient = await createClient()
@@ -567,18 +567,11 @@ export async function getCommunityPosts() {
     // Get current user
     const { data: { user } } = await supabaseClient.auth.getUser()
 
-    // Fetch posts with media
+    // Fetch posts with media URLs stored directly in the posts table
     const { data: posts, error } = await supabaseClient
       .from("community_posts")
       .select(`
-        *,
-        media:community_post_media(
-          id,
-          media_url,
-          media_type,
-          display_order,
-          created_at
-        )
+        *
       `)
       .order("is_pinned", { ascending: false })
       .order("created_at", { ascending: false })
@@ -604,7 +597,9 @@ export async function getCommunityPosts() {
     // Transform posts with media and user likes
     const transformedPosts = posts?.map(post => ({
       ...post,
-      media: post.media?.sort((a: any, b: any) => a.display_order - b.display_order) || [],
+      // Parse media URLs from JSON arrays stored in the database
+      images: post.image_urls ? (Array.isArray(post.image_urls) ? post.image_urls : JSON.parse(post.image_urls)) : [],
+      videos: post.video_urls ? (Array.isArray(post.video_urls) ? post.video_urls : JSON.parse(post.video_urls)) : [],
       user_has_liked: user ? userLikes.includes(post.id) : false
     })) || []
 
@@ -615,6 +610,7 @@ export async function getCommunityPosts() {
   }
 }
 
+// UPDATED FUNCTION: Create community post with media URLs stored directly
 export async function createCommunityPost(formData: FormData) {
   const title = formData.get("title") as string
   const content = formData.get("content") as string
@@ -659,6 +655,10 @@ export async function createCommunityPost(formData: FormData) {
           .filter(Boolean)
       : []
 
+    // Process image and video URLs
+    const imageUrlsArray = imageUrls ? imageUrls.split(",").filter(url => url.trim() !== "") : []
+    const videoUrlsArray = videoUrls ? videoUrls.split(",").filter(url => url.trim() !== "") : []
+
     const { data: postData, error } = await supabaseClient
       .from("community_posts")
       .insert({
@@ -670,6 +670,8 @@ export async function createCommunityPost(formData: FormData) {
         show_author: shouldShowAuthor,
         external_url: externalUrl || null,
         tags: tagsArray,
+        image_urls: imageUrlsArray.length > 0 ? JSON.stringify(imageUrlsArray) : null,
+        video_urls: videoUrlsArray.length > 0 ? JSON.stringify(videoUrlsArray) : null,
       })
       .select()
       .single()
@@ -677,48 +679,6 @@ export async function createCommunityPost(formData: FormData) {
     if (error) {
       console.error("Error creating community post:", error)
       return { error: "Failed to create post" }
-    }
-
-    // Handle images
-    if (imageUrls && postData) {
-      const imageUrlsArray = imageUrls.split(",").filter(Boolean)
-      if (imageUrlsArray.length > 0) {
-        const mediaData = imageUrlsArray.map((url, index) => ({
-          post_id: postData.id,
-          media_url: url.trim(),
-          media_type: 'image',
-          display_order: index,
-        }))
-
-        const { error: mediaError } = await supabaseClient
-          .from("community_post_media")
-          .insert(mediaData)
-
-        if (mediaError) {
-          console.error("Error inserting post images:", mediaError)
-        }
-      }
-    }
-
-    // Handle videos
-    if (videoUrls && postData) {
-      const videoUrlsArray = videoUrls.split(",").filter(Boolean)
-      if (videoUrlsArray.length > 0) {
-        const mediaData = videoUrlsArray.map((url, index) => ({
-          post_id: postData.id,
-          media_url: url.trim(),
-          media_type: 'video',
-          display_order: imageUrls ? imageUrls.split(",").filter(Boolean).length + index : index,
-        }))
-
-        const { error: mediaError } = await supabaseClient
-          .from("community_post_media")
-          .insert(mediaData)
-
-        if (mediaError) {
-          console.error("Error inserting post videos:", mediaError)
-        }
-      }
     }
 
     revalidatePath("/community")
@@ -1005,7 +965,6 @@ export async function deleteCommunityPost(postId: string) {
     }
 
     await Promise.all([
-      supabaseClient.from("community_post_media").delete().eq("post_id", postId),
       supabaseClient.from("community_comments").delete().eq("post_id", postId),
       supabaseClient.from("community_post_likes").delete().eq("post_id", postId),
       supabaseClient.from("community_comment_likes").delete().eq("post_id", postId),
