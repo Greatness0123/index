@@ -546,10 +546,12 @@ export async function createCommunityPost(formData: FormData) {
       .select("display_name, full_name")
       .eq("id", user.id)
       .single()
-
+    
+     const showAuthor = userProfile?.show_as_author !== false
     const authorName = showAuthor
       ? userProfile?.display_name || userProfile?.full_name || user.email?.split("@")[0] || "Anonymous"
       : null
+
 
     const tagsArray = tags
       ? tags
