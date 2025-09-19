@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, ImageIcon, LinkIcon } from "lucide-react"
+import { Plus, ImageIcon, LinkIcon, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
@@ -17,11 +17,34 @@ import { useMobile } from "@/hooks/use-mobile"
 function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+  const [imageUrls, setImageUrls] = useState([""]) // Start with one empty image URL field
   const router = useRouter()
+
+  const addImageField = () => {
+    setImageUrls([...imageUrls, ""])
+  }
+
+  const removeImageField = (index: number) => {
+    if (imageUrls.length > 1) {
+      setImageUrls(imageUrls.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateImageUrl = (index: number, value: string) => {
+    const newImageUrls = [...imageUrls]
+    newImageUrls[index] = value
+    setImageUrls(newImageUrls)
+  }
 
   const handleSubmit = async (formData: FormData) => {
     setIsSubmitting(true)
     setError("")
+
+    // Add all image URLs to form data as a comma-separated string
+    const validImageUrls = imageUrls.filter(url => url.trim() !== "")
+    if (validImageUrls.length > 0) {
+      formData.append("imageUrls", validImageUrls.join(","))
+    }
 
     const result = await createCommunityPost(formData)
 
@@ -69,10 +92,39 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="imageUrl">Image URL (optional)</Label>
-        <div className="relative">
-          <ImageIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg" className="pl-10" />
+        <div className="flex items-center justify-between">
+          <Label>Image URLs (optional)</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addImageField} className="gap-1">
+            <Plus className="h-3 w-3" />
+            Add Image
+          </Button>
+        </div>
+        
+        <div className="space-y-2">
+          {imageUrls.map((url, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <ImageIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={url}
+                  onChange={(e) => updateImageUrl(index, e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  className="pl-10"
+                />
+              </div>
+              {imageUrls.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeImageField(index)}
+                  className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
