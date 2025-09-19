@@ -88,7 +88,7 @@ export default async function ProfilePage() {
     .order("created_at", { ascending: false })
 
   return (
-    // <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -216,7 +216,7 @@ export default async function ProfilePage() {
                           <DeleteCommentButton
                             commentId={comment.id}
                             commentType="tool"
-{/*                             onSuccess={() => window.location.reload()} */}
+                            onSuccess={() => window.location.reload()}
                           />
                         </div>
                       </div>
@@ -248,7 +248,7 @@ export default async function ProfilePage() {
                           <DeleteCommentButton
                             commentId={comment.id}
                             commentType="community"
-{/*                             onSuccess={() => window.location.reload()} */}
+                            onSuccess={() => window.location.reload()}
                           />
                         </div>
                       </div>
