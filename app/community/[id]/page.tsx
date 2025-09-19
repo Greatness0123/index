@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { VerificationBadge } from "@/components/verification-badge"
 import { CommunityCommentsSection } from "@/components/community-comments-section"
 import { AuthorProfileModal } from "@/components/author-profile-modal"
 import { createClient } from "@/lib/supabase/client"
@@ -32,6 +33,7 @@ interface CommunityPost {
   created_at: string
   user_has_liked?: boolean
   author_profile_picture?: string
+  author_is_verified?: boolean
   image_urls?: string | string[] | null
   video_urls?: string | string[] | null
 }
@@ -84,6 +86,7 @@ export default function CommunityPostPage() {
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
   const [authorProfileImage, setAuthorProfileImage] = useState<string>("")
+  const [authorIsVerified, setAuthorIsVerified] = useState<boolean>(false)
   const [showAuthorModal, setShowAuthorModal] = useState(false)
 
   const supabase = createClient()
@@ -118,16 +121,17 @@ export default function CommunityPostPage() {
       setLiked(data.user_has_liked || false)
       setLikeCount(data.like_count)
 
-      // Fetch author's profile image if author exists and shows their identity
+      // Fetch author's profile data if author exists and shows their identity
       if (data.author_id && data.show_author) {
         const { data: authorProfile } = await supabase
           .from("users")
-          .select("profile_image")
+          .select("profile_image, is_verified")
           .eq("id", data.author_id)
           .single()
         
-        if (authorProfile?.profile_image) {
-          setAuthorProfileImage(authorProfile.profile_image)
+        if (authorProfile) {
+          setAuthorProfileImage(authorProfile.profile_image || "")
+          setAuthorIsVerified(authorProfile.is_verified || false)
         }
       }
 
@@ -338,16 +342,19 @@ export default function CommunityPostPage() {
                     )}
                   </AvatarFallback>
                 </Avatar>
-                <span 
-                  className={`font-medium ${
-                    post.show_author && post.author_name && post.author_id
-                      ? "text-primary hover:text-primary/80 cursor-pointer"
-                      : ""
-                  }`}
-                  onClick={handleAuthorClick}
-                >
-                  {post.show_author && post.author_name ? post.author_name : "Anonymous"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span 
+                    className={`font-medium ${
+                      post.show_author && post.author_name && post.author_id
+                        ? "text-primary hover:text-primary/80 cursor-pointer"
+                        : ""
+                    }`}
+                    onClick={handleAuthorClick}
+                  >
+                    {post.show_author && post.author_name ? post.author_name : "Anonymous"}
+                  </span>
+                  <VerificationBadge isVerified={authorIsVerified} size="sm" />
+                </div>
               </div>
             </header>
 
