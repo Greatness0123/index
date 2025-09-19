@@ -47,56 +47,76 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
 
   useEffect(() => {
     fetchComments()
-  }, [toolId, sortBy])
+  }, [toolId, sortBy, user]) // Added user as dependency
 
   const fetchComments = async () => {
-    let query = supabase
-      .from("comments")
-      .select(`
-        id, content, rating, created_at, helpful_count, total_votes, user_id,
-        users!inner(id, email, full_name, display_name)
-      `)
-      .eq("tool_id", toolId)
-      .eq("is_approved", true)
-
-    // Add user vote information if user is logged in
-    if (user) {
-      query = supabase
+    try {
+      setLoading(true)
+      
+      // Base query for comments
+      let query = supabase
         .from("comments")
         .select(`
-          id, content, rating, created_at, helpful_count, total_votes, user_id,
-          users!inner(id, email, full_name, display_name),
-          comment_votes!left(is_helpful)
+          id, 
+          content, 
+          rating, 
+          created_at, 
+          helpful_count, 
+          user_id,
+          users!inner(id, email, full_name, display_name)
         `)
         .eq("tool_id", toolId)
         .eq("is_approved", true)
-        .eq("comment_votes.user_id", user.id)
-    }
 
-    // Apply sorting
-    switch (sortBy) {
-      case "oldest":
-        query = query.order("created_at", { ascending: true })
-        break
-      case "helpful":
-        query = query.order("helpful_count", { ascending: false }).order("created_at", { ascending: false })
-        break
-      default:
-        query = query.order("created_at", { ascending: false })
-    }
+      // Apply sorting
+      switch (sortBy) {
+        case "oldest":
+          query = query.order("created_at", { ascending: true })
+          break
+        case "helpful":
+          query = query.order("helpful_count", { ascending: false }).order("created_at", { ascending: false })
+          break
+        default:
+          query = query.order("created_at", { ascending: false })
+      }
 
-    const { data, error } = await query
+      const { data: commentsData, error: commentsError } = await query
 
-    if (!error && data) {
-      // Transform the data to match expected structure
-      const transformedComments = data.map((comment: any) => ({
+      if (commentsError) {
+        console.error("Error fetching comments:", commentsError)
+        return
+      }
+
+      // If user is logged in, fetch their votes separately
+      let userVotes = {}
+      if (user) {
+        const { data: votesData, error: votesError } = await supabase
+          .from("comment_votes")
+          .select("comment_id, is_helpful")
+          .eq("user_id", user.id)
+          .in("comment_id", commentsData?.map(c => c.id) || [])
+
+        if (!votesError && votesData) {
+          userVotes = votesData.reduce((acc, vote) => {
+            acc[vote.comment_id] = vote
+            return acc
+          }, {})
+        }
+      }
+
+      // Transform comments with user vote information
+      const transformedComments = (commentsData || []).map(comment => ({
         ...comment,
-        user: comment.users,
-        user_vote: comment.comment_votes?.[0] || null,
+        user_vote: userVotes[comment.id] || null,
+        total_votes: comment.helpful_count // This might need adjustment based on your schema
       }))
+
       setComments(transformedComments)
+    } catch (error) {
+      console.error("Error in fetchComments:", error)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleSubmitComment = async () => {
@@ -114,7 +134,8 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     if (result.success) {
       setNewComment("")
       setNewRating(0)
-      fetchComments()
+      // Refresh comments immediately after submission
+      await fetchComments()
       toast({
         title: "Success",
         description: "Your comment has been posted!",
@@ -138,7 +159,14 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
 
     const result = await voteOnComment(commentId, isHelpful)
     if (result.success) {
+      // Refresh the comments to get updated vote counts
       fetchComments()
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to vote on comment",
+        variant: "destructive",
+      })
     }
   }
 
