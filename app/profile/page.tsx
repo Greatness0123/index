@@ -2,12 +2,13 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ProfileSettings } from "@/components/profile-settings"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Star, MessageCircle, Heart } from "lucide-react"
+import { ArrowLeft, Star, MessageCircle, Heart, FileText } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { DeleteCommentButton } from "@/components/delete-comment-button"
+import { DeletePostButton } from "@/components/delete-post-button"
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -38,6 +39,21 @@ export default async function ProfilePage() {
       category:categories(name, color)
     `)
     .eq("submitted_by", user.id)
+    .order("created_at", { ascending: false })
+
+  const { data: userPosts } = await supabase
+    .from("community_posts")
+    .select(`
+      id,
+      title,
+      content,
+      post_type,
+      created_at,
+      like_count,
+      comment_count,
+      tags
+    `)
+    .eq("author_id", user.id)
     .order("created_at", { ascending: false })
 
   const { data: toolComments } = await supabase
@@ -163,6 +179,61 @@ export default async function ProfilePage() {
             )}
           </div>
 
+          {/* Your Community Posts */}
+          <div className="lg:col-span-1">
+            <h2 className="text-xl font-semibold mb-4">Your Community Posts</h2>
+            {userPosts && userPosts.length > 0 ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {userPosts.map((post: any) => (
+                  <Card key={`post-${post.id}`} className="hover:shadow-md transition-shadow">
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                            {post.post_type || "Post"}
+                          </Badge>
+                          <Link href={`/community`} className="hover:underline">
+                            <span className="font-medium text-sm line-clamp-1">{post.title}</span>
+                          </Link>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{post.content}</p>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              <Heart className="h-3 w-3 mr-1" />
+                              {post.like_count || 0}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              <MessageCircle className="h-3 w-3 mr-1" />
+                              {post.comment_count || 0}
+                            </Badge>
+                          </div>
+                          <DeletePostButton postId={post.id} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>You haven't created any posts yet.</p>
+                <Link href="/community">
+                  <Button variant="outline" className="mt-2 bg-transparent">
+                    Create Your First Post
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* All Your Comments */}
           <div className="lg:col-span-1">
             <h2 className="text-xl font-semibold mb-4">All Your Comments</h2>
             <div className="space-y-4 max-h-96 overflow-y-auto">
