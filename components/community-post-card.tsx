@@ -1,334 +1,151 @@
 "use client"
 
 import { useState } from "react"
-import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User, X, ChevronLeft, ChevronRight } from "lucide-react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Plus, ImageIcon, LinkIcon } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { AuthorProfileModal } from "./author-profile-modal"
-import { likeCommunityPost } from "@/lib/actions"
-import Link from "next/link"
-import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { createCommunityPost } from "@/lib/actions"
+import { useRouter } from "next/navigation"
+import { useMobile } from "@/hooks/use-mobile"
 
-interface CommunityPost {
-  id: string
-  title: string
-  content: string
-  post_type: string
-  author_id?: string
-  author_name: string | null
-  show_author: boolean
-  image_url: string | null
-  external_url: string | null
-  tags: string[]
-  is_pinned: boolean
-  like_count: number
-  comment_count: number
-  view_count: number
-  created_at: string
-  user_has_liked?: boolean
-  author_profile_picture?: string
-}
+function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
 
-interface CommunityPostCardProps {
-  post: CommunityPost
-  isAuthenticated?: boolean
-}
+  const handleSubmit = async (formData: FormData) => {
+    setIsSubmitting(true)
+    setError("")
 
-export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardProps) {
-  const [liked, setLiked] = useState(post.user_has_liked || false)
-  const [likeCount, setLikeCount] = useState(post.like_count)
-  const [isLiking, setIsLiking] = useState(false)
-  const [showAuthorModal, setShowAuthorModal] = useState(false)
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
+    const result = await createCommunityPost(formData)
 
-  // If image_url is a string, convert it to an array
-  const images = post.image_url 
-    ? (Array.isArray(post.image_url) ? post.image_url : [post.image_url])
-    : []
-
-  const handleLike = async () => {
-    if (!isAuthenticated) {
-      // Redirect to login or show login modal
-      return
+    if (result.error) {
+      setError(result.error)
+    } else {
+      onSuccess()
+      router.refresh()
     }
 
-    setIsLiking(true)
-    const result = await likeCommunityPost(post.id)
-
-    if (result.success) {
-      setLiked(result.liked)
-      setLikeCount((prev) => (result.liked ? prev + 1 : prev - 1))
-    }
-
-    setIsLiking(false)
-  }
-
-  const handleAuthorClick = () => {
-    if (post.show_author && post.author_id && post.author_name) {
-      setShowAuthorModal(true)
-    }
-  }
-
-  const openImageModal = (index: number) => {
-    setSelectedImageIndex(index)
-  }
-
-  const closeImageModal = () => {
-    setSelectedImageIndex(null)
-  }
-
-  const goToNextImage = () => {
-    if (selectedImageIndex !== null) {
-      setSelectedImageIndex((selectedImageIndex + 1) % images.length)
-    }
-  }
-
-  const goToPrevImage = () => {
-    if (selectedImageIndex !== null) {
-      setSelectedImageIndex((selectedImageIndex - 1 + images.length) % images.length)
-    }
-  }
-
-  const getPostTypeColor = (type: string) => {
-    switch (type) {
-      case "announcement":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "showcase":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "question":
-        return "bg-orange-100 text-orange-800 border-orange-200"
-      case "advertisement":
-        return "bg-purple-100 text-purple-800 border-purple-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-
-    if (diffInHours < 1) return "Just now"
-    if (diffInHours < 24) return `${diffInHours}h ago`
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`
-    return date.toLocaleDateString()
+    setIsSubmitting(false)
   }
 
   return (
-    <>
-      <Card className="hover:shadow-md transition-shadow duration-200">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              {post.is_pinned && <Pin className="h-4 w-4 text-primary shrink-0" />}
-              <Badge variant="outline" className={`text-xs ${getPostTypeColor(post.post_type)}`}>
-                {post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              {formatDate(post.created_at)}
-            </div>
-          </div>
+    <form action={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="title">Title *</Label>
+        <Input id="title" name="title" placeholder="What's your post about?" required />
+      </div>
 
-          <Link href={`/community/${post.id}`}>
-            <h3 className="text-lg font-semibold text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2">
-              {post.title}
-            </h3>
-          </Link>
+      <div className="space-y-2">
+        <Label htmlFor="postType">Post Type</Label>
+        <Select name="postType" defaultValue="discussion">
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="discussion">Discussion</SelectItem>
+            <SelectItem value="question">Question</SelectItem>
+            <SelectItem value="showcase">Showcase</SelectItem>
+            <SelectItem value="advertisement">Advertisement</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src={post.author_profile_picture || "/placeholder.svg"} />
-              <AvatarFallback className="text-xs">
-                {post.show_author && post.author_name ? (
-                  post.author_name.charAt(0).toUpperCase()
-                ) : (
-                  <User className="h-3 w-3" />
-                )}
-              </AvatarFallback>
-            </Avatar>
-            <span
-              className={`text-sm ${
-                post.show_author && post.author_name && post.author_id
-                  ? "text-primary hover:text-primary/80 cursor-pointer font-medium"
-                  : "text-muted-foreground"
-              }`}
-              onClick={handleAuthorClick}
-            >
-              {post.show_author && post.author_name ? post.author_name : "Anonymous"}
-            </span>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pt-0">
-          {/* Content with image gallery */}
-          <div className={cn(
-            "flex flex-col lg:flex-row gap-4 mb-4",
-            images.length > 0 && "items-start"
-          )}>
-            {/* Text content */}
-            <div className={cn(
-              "flex-1",
-              images.length > 0 && "lg:min-w-0"
-            )}>
-              <p className="text-muted-foreground">{post.content}</p>
-            </div>
-            
-            {/* Image gallery - appears beside text on large screens, below on small screens */}
-           {images.length > 0 && (
-  <div className="lg:w-80 lg:mr-4 flex-shrink-0"> {/* Using margin-right instead */}
-    <div className={cn(
-      "grid gap-2",
-      images.length === 1 ? "grid-cols-1" : "grid-cols-2"
-    )}>
-      {images.map((image, index) => (
-        <div
-          key={index}
-          className={cn(
-            "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
-            images.length === 1 
-              ? "aspect-video lg:min-h-72" // Even taller for single images
-              : "aspect-square lg:min-h-36", // Taller for grid images
-            "lg:max-w-none"
-          )}
-          onClick={() => openImageModal(index)}
-        >
-          <img
-            src={image || "/placeholder.svg"}
-            alt={`Post image ${index + 1}`}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-          </div>
-
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-4">
-              {post.tags.slice(0, 4).map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  #{tag}
-                </Badge>
-              ))}
-              {post.tags.length > 4 && (
-                <Badge variant="secondary" className="text-xs">
-                  +{post.tags.length - 4}
-                </Badge>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLike}
-                disabled={isLiking}
-                className={`gap-2 ${liked ? "text-red-500" : "text-muted-foreground"}`}
-              >
-                <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
-                {likeCount}
-              </Button>
-
-              <Link href={`/community/${post.id}`}>
-                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-                  <MessageCircle className="h-4 w-4" />
-                  {post.comment_count}
-                </Button>
-              </Link>
-            </div>
-
-            {post.external_url && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(post.external_url!, "_blank")}
-                className="gap-2"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Visit
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Image Modal */}
-      <Dialog open={selectedImageIndex !== null} onOpenChange={(open) => !open && closeImageModal()}>
-        <DialogContent className="max-w-4xl p-0 bg-transparent border-none">
-          {selectedImageIndex !== null && (
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-4 right-4 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70"
-                onClick={closeImageModal}
-              >
-                <X className="h-6 w-6" />
-              </Button>
-              
-              {images.length > 1 && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute left-4 top-1/2 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 -translate-y-1/2"
-                    onClick={goToPrevImage}
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-4 top-1/2 z-50 h-10 w-10 rounded-full bg-black/50 text-white hover:bg-black/70 -translate-y-1/2"
-                    onClick={goToNextImage}
-                  >
-                    <ChevronRight className="h-6 w-6" />
-                  </Button>
-                </>
-              )}
-              
-              <div className="flex items-center justify-center h-[80vh]">
-                <img
-                  src={images[selectedImageIndex] || "/placeholder.svg"}
-                  alt={`Post image ${selectedImageIndex + 1}`}
-                  className="max-h-full max-w-full object-contain rounded-lg"
-                />
-              </div>
-              
-              {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-                  {images.map((_, index) => (
-                    <div
-                      key={index}
-                      className={`h-2 w-2 rounded-full ${
-                        index === selectedImageIndex ? "bg-white" : "bg-white/50"
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {post.author_id && post.author_name && (
-        <AuthorProfileModal
-          authorId={post.author_id}
-          authorName={post.author_name}
-          isOpen={showAuthorModal}
-          onClose={() => setShowAuthorModal(false)}
+      <div className="space-y-2">
+        <Label htmlFor="content">Content *</Label>
+        <Textarea
+          id="content"
+          name="content"
+          placeholder="Share your thoughts, ask a question, or showcase your work..."
+          rows={4}
+          required
         />
-      )}
-    </>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="imageUrl">Image URL (optional)</Label>
+        <div className="relative">
+          <ImageIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg" className="pl-10" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="externalUrl">External Link (optional)</Label>
+        <div className="relative">
+          <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input id="externalUrl" name="externalUrl" placeholder="https://your-project.com" className="pl-10" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="tags">Tags (comma-separated)</Label>
+        <Input id="tags" name="tags" placeholder="productivity, ai, design" />
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Switch id="showAuthor" name="showAuthor" defaultChecked />
+        <Label htmlFor="showAuthor">Show my name as the author</Label>
+      </div>
+
+      {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>}
+
+      <div className="flex justify-end gap-2">
+        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+          {isSubmitting ? "Creating..." : "Create Post"}
+        </Button>
+      </div>
+    </form>
   )
 }
+
+export function CreatePostDialog() {
+  const [open, setOpen] = useState(false)
+  const isMobile = useMobile()
+
+  const handleSuccess = () => {
+    setOpen(false)
+  }
+
+  const TriggerButton = (
+    <Button className="gap-2">
+      <Plus className="h-4 w-4" />
+      Create Post
+    </Button>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>{TriggerButton}</DrawerTrigger>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle>Create a New Post</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-4 overflow-y-auto scrollbar-hide">
+            <CreatePostForm onSuccess={handleSuccess} />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{TriggerButton}</DialogTrigger>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto scrollbar-hide">
+        <DialogHeader>
+          <DialogTitle>Create a New Post</DialogTitle>
+        </DialogHeader>
+        <CreatePostForm onSuccess={handleSuccess} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
