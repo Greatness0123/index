@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User, X, ChevronLeft, ChevronRight, Play, Pause, Volume2, VolumeX } from "lucide-react"
+import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User, X, ChevronLeft, ChevronRight, Play } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,7 +39,7 @@ interface CommunityPost {
   created_at: string
   user_has_liked?: boolean
   author_profile_picture?: string
-  media?: CommunityPostMedia[]
+  community_post_media?: CommunityPostMedia[] // Changed from 'media' to 'community_post_media'
 }
 
 interface CommunityPostCardProps {
@@ -91,10 +91,10 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
 
-  // Separate images and videos from media
-  const images = post.media?.filter(m => m.media_type === 'image').sort((a, b) => a.display_order - b.display_order) || []
-  const videos = post.media?.filter(m => m.media_type === 'video').sort((a, b) => a.display_order - b.display_order) || []
-  const allMedia = post.media?.sort((a, b) => a.display_order - b.display_order) || []
+  // Get media from community_post_media instead of media
+  const allMedia = post.community_post_media?.sort((a, b) => a.display_order - b.display_order) || []
+  const images = allMedia.filter(m => m.media_type === 'image')
+  const videos = allMedia.filter(m => m.media_type === 'video')
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -288,6 +288,10 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                               alt={`Post image ${index + 1}`}
                               className="h-full w-full object-cover transition-transform duration-300"
                               loading="lazy"
+                              onError={(e) => {
+                                // Fallback to placeholder if image fails to load
+                                e.currentTarget.src = "/placeholder.svg"
+                              }}
                             />
                           </div>
                         ))}
@@ -325,6 +329,9 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                                   alt={`Video ${index + 1}`}
                                   className="h-full w-full object-cover transition-transform duration-300"
                                   loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.src = "/placeholder.svg"
+                                  }}
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
                                   <div className="bg-red-600 text-white rounded-full p-3">
@@ -458,6 +465,9 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     src={allMedia[selectedMediaIndex].media_url || "/placeholder.svg"}
                     alt={`Post media ${selectedMediaIndex + 1}`}
                     className="max-h-full max-w-full object-contain rounded-lg"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg"
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
