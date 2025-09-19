@@ -39,7 +39,7 @@ interface CommunityPost {
   created_at: string
   user_has_liked?: boolean
   author_profile_picture?: string
-  community_post_media?: CommunityPostMedia[] // Changed from 'media' to 'community_post_media'
+  community_post_media: CommunityPostMedia[] // This should match the Supabase query
 }
 
 interface CommunityPostCardProps {
@@ -71,7 +71,7 @@ const getEmbedUrl = (url: string) => {
     return `https://player.vimeo.com/video/${vimeoMatch[1]}`
   }
   
-  return url // Return original URL for direct video files
+  return url
 }
 
 // Function to get video thumbnail
@@ -91,10 +91,13 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
 
-  // Get media from community_post_media instead of media
+  // Get media from community_post_media
   const allMedia = post.community_post_media?.sort((a, b) => a.display_order - b.display_order) || []
   const images = allMedia.filter(m => m.media_type === 'image')
   const videos = allMedia.filter(m => m.media_type === 'video')
+  const hasMedia = images.length > 0 || videos.length > 0
+
+  console.log('Post media:', { allMedia, images, videos, hasMedia }) // Debug log
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -163,8 +166,6 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`
     return date.toLocaleDateString()
   }
-
-  const hasMedia = images.length > 0 || videos.length > 0
 
   // Set initial active tab based on available media
   useEffect(() => {
@@ -238,7 +239,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
               <p className="text-muted-foreground leading-relaxed">{post.content}</p>
             </div>
             
-            {/* Media Gallery */}
+            {/* Media Gallery - Only show if there's media */}
             {hasMedia && (
               <div className={cn(
                 "flex-shrink-0",
@@ -257,7 +258,8 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     </TabsList>
                   )}
                   
-                  <TabsContent value="images" className={images.length === 0 ? "hidden" : ""}>
+                  {/* Images Tab */}
+                  <TabsContent value="images" className={images.length === 0 ? "hidden" : "m-0"}>
                     {images.length > 0 && (
                       <div className={cn(
                         "grid gap-3",
@@ -289,7 +291,6 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                               className="h-full w-full object-cover transition-transform duration-300"
                               loading="lazy"
                               onError={(e) => {
-                                // Fallback to placeholder if image fails to load
                                 e.currentTarget.src = "/placeholder.svg"
                               }}
                             />
@@ -299,7 +300,8 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     )}
                   </TabsContent>
                   
-                  <TabsContent value="videos" className={videos.length === 0 ? "hidden" : ""}>
+                  {/* Videos Tab */}
+                  <TabsContent value="videos" className={videos.length === 0 ? "hidden" : "m-0"}>
                     {videos.length > 0 && (
                       <div className={cn(
                         "grid gap-3",
