@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { VerificationBadge } from "@/components/verification-badge"
 import { createClient } from "@/lib/supabase/client"
 
 interface AuthorProfileModalProps {
@@ -26,6 +27,7 @@ interface AuthorProfile {
   twitter_handle: string
   github_handle: string
   profile_image: string
+  is_verified: boolean
   created_at: string
   tool_count: number
   post_count: number
@@ -50,7 +52,7 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
     setLoading(true)
 
     try {
-      // Fetch user profile with profile_image
+      // Fetch user profile with profile_image and is_verified
       const { data: userProfile } = await supabase
         .from("users")
         .select("*")
@@ -162,7 +164,10 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
             </Avatar>
 
             <div className="flex-1 space-y-2">
-              <h2 className="text-xl font-semibold">{getDisplayName()}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold">{getDisplayName()}</h2>
+                <VerificationBadge isVerified={profile?.is_verified || false} size="md" />
+              </div>
               {profile?.bio && <p className="text-muted-foreground">{profile.bio}</p>}
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
