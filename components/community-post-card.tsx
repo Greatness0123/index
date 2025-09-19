@@ -181,7 +181,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
             
             {/* Image gallery - appears beside text on large screens, below on small screens */}
             {images.length > 0 && (
-              <div className="lg:w-80 flex-shrink-0"> {/* Increased width for larger desktop images */}
+              <div className="lg:w-96 flex-shrink-0 my-5 lg:my-0"> {/* Increased width and added vertical margin */}
                 <div className={cn(
                   "grid gap-2",
                   images.length === 1 ? "grid-cols-1" : "grid-cols-2"
@@ -190,7 +190,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     <div
                       key={index}
                       className={cn(
-                        "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
+                        "cursor-pointer overflow-hidden rounded-lg border-2 border-muted bg-muted transition-transform hover:scale-105", // Thicker border
                         images.length === 1 ? "aspect-video" : "aspect-square", // Wider aspect for single images
                         "lg:max-w-none" // Remove max-width constraints on desktop
                       )}
@@ -261,7 +261,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
 
       {/* Image Modal */}
       <Dialog open={selectedImageIndex !== null} onOpenChange={(open) => !open && closeImageModal()}>
-        <DialogContent className="max-w-4xl p-0 bg-transparent border-none">
+        <DialogContent className="max-w-4xl p-0 bg-background border"> {/* Added border to modal */}
           {selectedImageIndex !== null && (
             <div className="relative">
               <Button
@@ -294,7 +294,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                 </>
               )}
               
-              <div className="flex items-center justify-center h-[80vh]">
+              <div className="flex items-center justify-center h-[80vh] p-4"> {/* Added padding */}
                 <img
                   src={images[selectedImageIndex] || "/placeholder.svg"}
                   alt={`Post image ${selectedImageIndex + 1}`}
@@ -308,7 +308,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     <div
                       key={index}
                       className={`h-2 w-2 rounded-full ${
-                        index === selectedImageIndex ? "bg-white" : "bg-white/50"
+                        index === selectedImageIndex ? "bg-primary" : "bg-muted-foreground/50"
                       }`}
                     />
                   ))}
