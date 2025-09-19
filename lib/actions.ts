@@ -121,7 +121,6 @@ export async function submitTool(formData: FormData) {
       .single()
 
     if (duplicateError && duplicateError.code !== "PGRST116") {
-      // PGRST116 is "not found" error, which is what we want
       console.error("Error checking for duplicates:", duplicateError)
       return { error: "Failed to check for duplicate tools. Please try again." }
     }
@@ -222,7 +221,7 @@ export async function submitComment(toolId: string, content: string, rating: num
         user_id: user.id,
         content: content.trim(),
         rating,
-        is_approved: true, // Set to false if you need moderation
+        is_approved: true,
       })
       .select(`
         id,
@@ -252,7 +251,6 @@ export async function submitComment(toolId: string, content: string, rating: num
       console.error("Error updating tool statistics:", statsError)
     }
 
-    // This is crucial for refreshing the page
     revalidatePath(`/tools/${toolId}`)
     
     return { success: "Comment submitted successfully!" }
@@ -275,7 +273,6 @@ export async function voteOnComment(commentId: string, isHelpful: boolean) {
       return { error: "You must be logged in to vote on comments" }
     }
 
-    // Check if already liked
     const { data: existing } = await supabaseClient
       .from("comment_votes")
       .select("id")
@@ -284,7 +281,6 @@ export async function voteOnComment(commentId: string, isHelpful: boolean) {
       .single()
 
     if (existing) {
-      // Remove like
       const { error } = await supabaseClient
         .from("comment_votes")
         .delete()
@@ -294,7 +290,6 @@ export async function voteOnComment(commentId: string, isHelpful: boolean) {
       if (error) throw error
       return { success: true, liked: false }
     } else {
-      // Add like
       const { error } = await supabaseClient.from("comment_votes").insert({
         comment_id: commentId,
         user_id: user.id,
@@ -330,7 +325,6 @@ export async function toggleFavorite(toolId: string) {
       .single()
 
     if (existing) {
-      // Remove favorite
       const { error } = await supabaseClient
         .from("user_favorites")
         .delete()
@@ -339,7 +333,6 @@ export async function toggleFavorite(toolId: string) {
 
       if (error) throw error
     } else {
-      // Add favorite - use upsert to handle duplicate key constraint
       const { error } = await supabaseClient.from("user_favorites").upsert(
         {
           tool_id: toolId,
@@ -373,12 +366,10 @@ export async function toggleFavorite(toolId: string) {
   }
 }
 
-// Add this function to your existing actions.ts
 export async function getComments(toolId: string, userId?: string) {
   try {
     const supabaseClient = await createClient()
 
-    // Base query for comments
     let query = supabaseClient
       .from("comments")
       .select(`
@@ -401,7 +392,6 @@ export async function getComments(toolId: string, userId?: string) {
       return { error: "Failed to fetch comments" }
     }
 
-    // If user is logged in, fetch their votes
     let userVotes = {}
     if (userId) {
       const { data: votesData, error: votesError } = await supabaseClient
@@ -418,11 +408,10 @@ export async function getComments(toolId: string, userId?: string) {
       }
     }
 
-    // Transform comments with user vote information
     const transformedComments = (commentsData || []).map(comment => ({
       ...comment,
       user_vote: userVotes[comment.id] || null,
-      total_votes: comment.helpful_count // Adjust if you have a different way to track total votes
+      total_votes: comment.helpful_count
     }))
 
     return { comments: transformedComments }
@@ -431,6 +420,7 @@ export async function getComments(toolId: string, userId?: string) {
     return { error: "An unexpected error occurred" }
   }
 }
+
 export async function trackToolView(toolId: string, userId?: string) {
   try {
     const supabaseClient = await createClient()
@@ -440,7 +430,6 @@ export async function trackToolView(toolId: string, userId?: string) {
       user_id: userId || null,
     })
 
-    // Update tool stats will be handled by database trigger
     return { success: true }
   } catch (error) {
     console.error("Error tracking view:", error)
@@ -484,7 +473,6 @@ export async function deleteTool(toolId: string) {
       return { error: "You must be logged in to delete tools" }
     }
 
-    // Check if user owns this tool
     const { data: tool, error: toolError } = await supabaseClient
       .from("tools")
       .select("id, name, submitted_by")
@@ -499,7 +487,6 @@ export async function deleteTool(toolId: string) {
       return { error: "You can only delete tools you submitted" }
     }
 
-    // Delete related data first (foreign key constraints)
     await Promise.all([
       supabaseClient.from("tool_screenshots").delete().eq("tool_id", toolId),
       supabaseClient.from("tool_tags").delete().eq("tool_id", toolId),
@@ -510,7 +497,6 @@ export async function deleteTool(toolId: string) {
       supabaseClient.from("tool_stats").delete().eq("tool_id", toolId),
     ])
 
-    // Delete the tool
     const { error: deleteError } = await supabaseClient.from("tools").delete().eq("id", toolId)
 
     if (deleteError) {
@@ -577,7 +563,8 @@ export async function createCommunityPost(formData: FormData) {
   const title = formData.get("title") as string
   const content = formData.get("content") as string
   const postType = formData.get("postType") as string
-  const imageUrl = formData.get("imageUrl") as string
+  const imageUrls = formData.get("imageUrls") as string
+  const videoUrls = formData.get("videoUrls") as string
   const externalUrl = formData.get("externalUrl") as string
   const tags = formData.get("tags") as string
   const showAuthor = formData.get("showAuthor") === "true"
@@ -598,18 +585,16 @@ export async function createCommunityPost(formData: FormData) {
       return { error: "You must be logged in to create a post" }
     }
 
-    // Get user profile for display name
     const { data: userProfile } = await supabaseClient
       .from("users")
-      .select("display_name, full_name")
+      .select("display_name, full_name, show_as_author")
       .eq("id", user.id)
       .single()
     
-     const showAuthor = userProfile?.show_as_author !== false
-    const authorName = showAuthor
+    const shouldShowAuthor = showAuthor && userProfile?.show_as_author !== false
+    const authorName = shouldShowAuthor
       ? userProfile?.display_name || userProfile?.full_name || user.email?.split("@")[0] || "Anonymous"
       : null
-
 
     const tagsArray = tags
       ? tags
@@ -618,7 +603,7 @@ export async function createCommunityPost(formData: FormData) {
           .filter(Boolean)
       : []
 
-    const { data, error } = await supabaseClient
+    const { data: postData, error } = await supabaseClient
       .from("community_posts")
       .insert({
         title: title.trim(),
@@ -626,8 +611,7 @@ export async function createCommunityPost(formData: FormData) {
         post_type: postType || "discussion",
         author_id: user.id,
         author_name: authorName,
-        show_author: showAuthor,
-        image_url: imageUrl || null,
+        show_author: shouldShowAuthor,
         external_url: externalUrl || null,
         tags: tagsArray,
       })
@@ -637,6 +621,48 @@ export async function createCommunityPost(formData: FormData) {
     if (error) {
       console.error("Error creating community post:", error)
       return { error: "Failed to create post" }
+    }
+
+    // Handle images
+    if (imageUrls && postData) {
+      const imageUrlsArray = imageUrls.split(",").filter(Boolean)
+      if (imageUrlsArray.length > 0) {
+        const mediaData = imageUrlsArray.map((url, index) => ({
+          post_id: postData.id,
+          media_url: url.trim(),
+          media_type: 'image',
+          display_order: index,
+        }))
+
+        const { error: mediaError } = await supabaseClient
+          .from("community_post_media")
+          .insert(mediaData)
+
+        if (mediaError) {
+          console.error("Error inserting post images:", mediaError)
+        }
+      }
+    }
+
+    // Handle videos
+    if (videoUrls && postData) {
+      const videoUrlsArray = videoUrls.split(",").filter(Boolean)
+      if (videoUrlsArray.length > 0) {
+        const mediaData = videoUrlsArray.map((url, index) => ({
+          post_id: postData.id,
+          media_url: url.trim(),
+          media_type: 'video',
+          display_order: imageUrls ? imageUrls.split(",").filter(Boolean).length + index : index,
+        }))
+
+        const { error: mediaError } = await supabaseClient
+          .from("community_post_media")
+          .insert(mediaData)
+
+        if (mediaError) {
+          console.error("Error inserting post videos:", mediaError)
+        }
+      }
     }
 
     revalidatePath("/community")
@@ -660,7 +686,6 @@ export async function likeCommunityPost(postId: string) {
       return { error: "You must be logged in to like posts" }
     }
 
-    // Check if already liked
     const { data: existing } = await supabaseClient
       .from("community_post_likes")
       .select("id")
@@ -669,7 +694,6 @@ export async function likeCommunityPost(postId: string) {
       .single()
 
     if (existing) {
-      // Remove like
       const { error } = await supabaseClient
         .from("community_post_likes")
         .delete()
@@ -679,7 +703,6 @@ export async function likeCommunityPost(postId: string) {
       if (error) throw error
       return { success: true, liked: false }
     } else {
-      // Add like
       const { error } = await supabaseClient.from("community_post_likes").insert({
         post_id: postId,
         user_id: user.id,
@@ -707,7 +730,6 @@ export async function createCommunityComment(postId: string, content: string, pa
       return { error: "You must be logged in to comment" }
     }
 
-    // Get user profile for display name
     const { data: userProfile } = await supabaseClient
       .from("users")
       .select("display_name, full_name, show_as_author")
@@ -758,7 +780,6 @@ export async function likeCommunityComment(commentId: string) {
       return { error: "You must be logged in to like comments" }
     }
 
-    // Check if already liked
     const { data: existing } = await supabaseClient
       .from("community_comment_likes")
       .select("id")
@@ -767,7 +788,6 @@ export async function likeCommunityComment(commentId: string) {
       .single()
 
     if (existing) {
-      // Remove like
       const { error } = await supabaseClient
         .from("community_comment_likes")
         .delete()
@@ -777,7 +797,6 @@ export async function likeCommunityComment(commentId: string) {
       if (error) throw error
       return { success: true, liked: false }
     } else {
-      // Add like
       const { error } = await supabaseClient.from("community_comment_likes").insert({
         comment_id: commentId,
         user_id: user.id,
@@ -805,7 +824,6 @@ export async function deleteComment(commentId: string) {
       return { error: "You must be logged in to delete comments" }
     }
 
-    // Check if user owns this comment
     const { data: comment, error: commentError } = await supabaseClient
       .from("comments")
       .select("id, user_id, tool_id")
@@ -820,10 +838,8 @@ export async function deleteComment(commentId: string) {
       return { error: "You can only delete your own comments" }
     }
 
-    // Delete related votes first
     await supabaseClient.from("comment_votes").delete().eq("comment_id", commentId)
 
-    // Delete the comment
     const { error: deleteError } = await supabaseClient.from("comments").delete().eq("id", commentId)
 
     if (deleteError) {
@@ -831,7 +847,6 @@ export async function deleteComment(commentId: string) {
       return { error: "Failed to delete comment" }
     }
 
-    // Update tool statistics
     try {
       const { error: statsError } = await supabaseClient.rpc("update_tool_statistics_safe", {
         target_tool_id: comment.tool_id,
@@ -865,7 +880,6 @@ export async function deleteCommunityComment(commentId: string) {
       return { error: "You must be logged in to delete comments" }
     }
 
-    // Check if user owns this comment
     const { data: comment, error: commentError } = await supabaseClient
       .from("community_comments")
       .select("id, author_id, post_id")
@@ -880,10 +894,8 @@ export async function deleteCommunityComment(commentId: string) {
       return { error: "You can only delete your own comments" }
     }
 
-    // Delete related likes first
     await supabaseClient.from("community_comment_likes").delete().eq("comment_id", commentId)
 
-    // Delete the comment
     const { error: deleteError } = await supabaseClient.from("community_comments").delete().eq("id", commentId)
 
     if (deleteError) {
@@ -909,72 +921,6 @@ export async function copyCommentText(text: string) {
   }
 }
 
-async function updateToolStatsSimple(toolId: string) {
-  try {
-    // Get comment count
-    const { count: commentCount } = await supabase
-      .from("comments")
-      .select("*", { count: "exact", head: true })
-      .eq("tool_id", toolId)
-      .eq("is_approved", true)
-
-    // Get favorite count
-    const { count: favoriteCount } = await supabase
-      .from("user_favorites")
-      .select("*", { count: "exact", head: true })
-      .eq("tool_id", toolId)
-
-    // Update or insert tool stats
-    const { error: statsError } = await supabase.from("tool_stats").upsert({
-      tool_id: toolId,
-      comment_count: commentCount || 0,
-      favorite_count: favoriteCount || 0,
-      updated_at: new Date().toISOString(),
-    })
-
-    if (statsError) {
-      console.error("Error updating tool stats:", statsError)
-    }
-
-    // Calculate and update average rating
-    const { data: ratings } = await supabase
-      .from("comments")
-      .select("rating")
-      .eq("tool_id", toolId)
-      .eq("is_approved", true)
-      .not("rating", "is", null)
-
-    if (ratings && ratings.length > 0) {
-      const validRatings = ratings.map((r) => r.rating).filter((r) => r !== null)
-      if (validRatings.length > 0) {
-        const averageRating = validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length
-
-        const { error: toolUpdateError } = await supabase
-          .from("tools")
-          .update({
-            rating: Math.round(averageRating * 10) / 10,
-            rating_count: validRatings.length,
-          })
-          .eq("id", toolId)
-
-        if (toolUpdateError) {
-          console.error("Error updating tool rating:", toolUpdateError)
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Error updating tool stats:", error)
-  }
-}
-
-async function updateToolStatsManually(toolId: string) {
-  await updateToolStatsSimple(toolId)
-}
-
-async function updateToolStats(toolId: string) {
-  await updateToolStatsSimple(toolId)
-}
-// Add this to your existing actions.ts file
 export async function deleteCommunityPost(postId: string) {
   try {
     const supabaseClient = await createClient()
@@ -988,7 +934,6 @@ export async function deleteCommunityPost(postId: string) {
       return { error: "You must be logged in to delete posts" }
     }
 
-    // Check if user owns this post
     const { data: post, error: postError } = await supabaseClient
       .from("community_posts")
       .select("id, author_id")
@@ -1003,14 +948,13 @@ export async function deleteCommunityPost(postId: string) {
       return { error: "You can only delete your own posts" }
     }
 
-    // Delete related data first (foreign key constraints)
     await Promise.all([
+      supabaseClient.from("community_post_media").delete().eq("post_id", postId),
       supabaseClient.from("community_comments").delete().eq("post_id", postId),
       supabaseClient.from("community_post_likes").delete().eq("post_id", postId),
       supabaseClient.from("community_comment_likes").delete().eq("post_id", postId),
     ])
 
-    // Delete the post
     const { error: deleteError } = await supabaseClient.from("community_posts").delete().eq("id", postId)
 
     if (deleteError) {
