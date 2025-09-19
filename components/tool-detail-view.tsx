@@ -1,14 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowLeft, ExternalLink, Heart, Share2, Eye, MessageCircle, User, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { VerificationBadge } from "@/components/verification-badge"
 import { CommentSection } from "./comment-section"
 import { RatingDisplay } from "./rating-display"
 import { ScreenshotGallery } from "./screenshot-gallery"
 import { toggleFavorite, trackToolClick, deleteTool } from "@/lib/actions"
+import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -24,9 +27,36 @@ export function ToolDetailView({ tool, user, isFavorited: initialFavorited, simi
   const [favoriteCount, setFavoriteCount] = useState(tool.stats?.favorite_count || 0)
   const [shareMessage, setShareMessage] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [submitterProfile, setSubmitterProfile] = useState<{
+    profile_image: string | null
+    is_verified: boolean
+  } | null>(null)
   const router = useRouter()
 
   const isOwner = user && tool.submitted_by === user.id
+  const supabase = createClient()
+
+  // Fetch submitter profile data
+  useEffect(() => {
+    const fetchSubmitterProfile = async () => {
+      if (tool.show_author && tool.submitter?.id) {
+        const { data, error } = await supabase
+          .from("users")
+          .select("profile_image, is_verified")
+          .eq("id", tool.submitter.id)
+          .single()
+
+        if (data && !error) {
+          setSubmitterProfile({
+            profile_image: data.profile_image,
+            is_verified: data.is_verified || false
+          })
+        }
+      }
+    }
+
+    fetchSubmitterProfile()
+  }, [tool.submitter?.id, tool.show_author])
 
   const handleFavoriteToggle = async () => {
     if (!user) {
@@ -102,6 +132,20 @@ export function ToolDetailView({ tool, user, isFavorited: initialFavorited, simi
     }
   }
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
+  const getDisplayName = () => {
+    if (!tool.submitter) return "Anonymous"
+    return tool.submitter.display_name || tool.submitter.full_name || "Anonymous"
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -164,14 +208,20 @@ export function ToolDetailView({ tool, user, isFavorited: initialFavorited, simi
                   <p className="text-lg text-muted-foreground">{tool.description}</p>
 
                   {tool.show_author && tool.submitter && tool.submitter.id !== user?.id && (
-                    <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      <span>
-                        Uploaded by{" "}
+                    <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={submitterProfile?.profile_image || "/placeholder.svg"} />
+                        <AvatarFallback className="text-xs">
+                          {getInitials(getDisplayName())}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>Uploaded by</span>
+                      <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground">
-                          {tool.submitter.display_name || tool.submitter.full_name || "Anonymous"}
+                          {getDisplayName()}
                         </span>
-                      </span>
+                        <VerificationBadge isVerified={submitterProfile?.is_verified || false} size="sm" />
+                      </div>
                     </div>
                   )}
                 </div>
