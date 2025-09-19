@@ -519,6 +519,7 @@ export async function updateUserProfile(profileData: {
   website_url: string
   twitter_handle: string
   github_handle: string
+  profile_image: string
   show_as_author: boolean
 }) {
   try {
@@ -542,6 +543,7 @@ export async function updateUserProfile(profileData: {
       website_url: profileData.website_url.trim(),
       twitter_handle: profileData.twitter_handle.trim(),
       github_handle: profileData.github_handle.trim(),
+      profile_image: profileData.profile_image.trim(),
       show_as_author: profileData.show_as_author,
       updated_at: new Date().toISOString(),
     })
@@ -558,7 +560,6 @@ export async function updateUserProfile(profileData: {
     return { error: "An unexpected error occurred" }
   }
 }
-
 // UPDATED FUNCTION: Fetch community posts with media URLs stored directly in posts
 export async function getCommunityPosts() {
   try {
