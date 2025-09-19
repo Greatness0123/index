@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Sparkles, User, LogOut, Settings, Users, Menu } from "lucide-react"
+import { Search, Sparkles, User, LogOut, Settings, Users, Menu, Filter, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { SubmitToolDialog } from "./submit-tool-dialog"
 import { FiltersModal } from "./filters-modal"
@@ -15,7 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 
 interface HeaderProps {
@@ -42,28 +43,26 @@ export function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const supabase = createClient()
 
- useEffect(() => {
-  const getUser = async () => {
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setUser(user)
+      setLoading(false)
+    }
+    getUser()
+
     const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    setUser(user)
-    setLoading(false)
-  }
-  getUser()
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
 
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    setUser(session?.user ?? null)
-  })
-
-  return () => {
-    subscription.unsubscribe()
-  }
-}, [supabase])
-
-
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -178,90 +177,119 @@ export function Header({
           <div className="md:hidden">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Button variant="outline" size="sm" className="h-9 w-9 p-0 border-muted-foreground/20">
                   <Menu className="h-4 w-4" />
                   <span className="sr-only">Toggle menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                <div className="flex flex-col space-y-4 mt-4">
-                  <div className="flex flex-col space-y-2">
-                    <Button variant="ghost" size="sm" asChild className="justify-start">
-                      <Link href="/" onClick={closeMobileMenu}>
-                        Tools
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild className="justify-start">
-                      <Link href="/community" onClick={closeMobileMenu} className="gap-2">
-                        <Users className="h-4 w-4" />
-                        Community
-                      </Link>
-                    </Button>
-                  </div>
-
-                  <div className="border-t pt-4">
-                    <div className="mb-4">
-                      <FiltersModal
-                        selectedPricing={selectedPricing}
-                        selectedRating={selectedRating}
-                        onPricingChange={onPricingChange}
-                        onRatingChange={onRatingChange}
-                        onClearFilters={onClearFilters}
-                      />
+              <SheetContent side="right" className="w-[280px] sm:w-[320px] p-0">
+                <SheetHeader className="px-6 py-4 border-b bg-muted/30">
+                  <SheetTitle className="text-left flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                      <span className="text-primary-foreground font-bold text-sm">I</span>
                     </div>
-
-                    <div className="mb-4">
-                      <SubmitToolDialog />
-                    </div>
-
-                    {!loading && (
-                      <>
-                        {user ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 p-2 rounded-md bg-muted">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>{user.email?.charAt(0).toUpperCase() || "U"}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col">
-                                <p className="text-sm font-medium leading-none">{user.email}</p>
-                              </div>
+                    Menu
+                  </SheetTitle>
+                </SheetHeader>
+                
+                <div className="flex flex-col h-full">
+                  {/* User Section */}
+                  {!loading && (
+                    <div className="px-6 py-4">
+                      {user ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="text-sm font-medium">
+                                {user.email?.charAt(0).toUpperCase() || "U"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <p className="text-sm font-medium leading-none truncate">{user.email}</p>
+                              <p className="text-xs text-muted-foreground mt-1">Signed in</p>
                             </div>
-                            <Button variant="ghost" size="sm" asChild className="justify-start w-full">
+                          </div>
+
+                          <div className="space-y-1">
+                            <Button variant="ghost" size="sm" asChild className="w-full justify-start h-10">
                               <Link href="/profile" onClick={closeMobileMenu}>
-                                <Settings className="mr-2 h-4 w-4" />
+                                <Settings className="mr-3 h-4 w-4" />
                                 Profile Settings
                               </Link>
                             </Button>
-                            <Button variant="ghost" size="sm" asChild className="justify-start w-full">
+                            <Button variant="ghost" size="sm" asChild className="w-full justify-start h-10">
                               <Link href="/community" onClick={closeMobileMenu}>
-                                <Users className="mr-2 h-4 w-4" />
+                                <Users className="mr-3 h-4 w-4" />
                                 Community
                               </Link>
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                handleSignOut()
-                                closeMobileMenu()
-                              }}
-                              className="justify-start w-full"
-                            >
-                              <LogOut className="mr-2 h-4 w-4" />
-                              Log out
-                            </Button>
                           </div>
-                        ) : (
-                          <Button variant="ghost" size="sm" asChild className="justify-start w-full">
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="text-center py-4">
+                            <User className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
+                            <p className="text-sm text-muted-foreground">Sign in to access all features</p>
+                          </div>
+                          <Button asChild className="w-full">
                             <a href="/auth/login" onClick={closeMobileMenu}>
                               <User className="h-4 w-4 mr-2" />
                               Sign In
                             </a>
                           </Button>
-                        )}
-                      </>
-                    )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Actions Section */}
+                  <div className="px-6 py-4 space-y-3">
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Actions
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Button variant="outline" className="w-full justify-start h-10" onClick={closeMobileMenu}>
+                        <Filter className="mr-3 h-4 w-4" />
+                        <span className="flex-1 text-left">Filters & Search</span>
+                        <FiltersModal
+                          selectedPricing={selectedPricing}
+                          selectedRating={selectedRating}
+                          onPricingChange={onPricingChange}
+                          onRatingChange={onRatingChange}
+                          onClearFilters={onClearFilters}
+                        />
+                      </Button>
+
+                      <div className="w-full" onClick={closeMobileMenu}>
+                        <SubmitToolDialog />
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Logout Section (only for authenticated users) */}
+                  {!loading && user && (
+                    <>
+                      <div className="flex-1" />
+                      <Separator />
+                      <div className="px-6 py-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            handleSignOut()
+                            closeMobileMenu()
+                          }}
+                          className="w-full justify-start h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <LogOut className="mr-3 h-4 w-4" />
+                          Sign Out
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
