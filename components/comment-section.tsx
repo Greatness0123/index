@@ -5,9 +5,10 @@ import { Star, MessageCircle, ThumbsUp, ThumbsDown, Flag, Trash2, Copy, RefreshC
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { VerificationBadge } from "@/components/verification-badge"
 import { supabase } from "@/lib/supabase/client"
 import { submitComment, voteOnComment, deleteComment, getComments } from "@/lib/actions"
 import { toast } from "@/hooks/use-toast"
@@ -25,6 +26,8 @@ interface Comment {
     email: string
     full_name?: string
     display_name?: string
+    profile_image?: string
+    is_verified?: boolean
   }
   user_vote?: {
     is_helpful: boolean
@@ -220,6 +223,15 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     return commentUser.display_name || commentUser.full_name || commentUser.email?.split("@")[0] || "Anonymous"
   }
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -347,12 +359,16 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
               <CardContent className="pt-6">
                 <div className="flex items-start gap-4">
                   <Avatar>
-                    <AvatarFallback>{getDisplayName(comment.user).charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={comment.user?.profile_image || "/placeholder.svg"} />
+                    <AvatarFallback>{getInitials(getDisplayName(comment.user))}</AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{getDisplayName(comment.user)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{getDisplayName(comment.user)}</span>
+                        <VerificationBadge isVerified={comment.user?.is_verified || false} size="sm" />
+                      </div>
                       <span className="text-sm text-muted-foreground">{formatDate(comment.created_at)}</span>
                       {comment.rating && (
                         <div className="flex items-center gap-1">
