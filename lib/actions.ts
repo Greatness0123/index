@@ -916,3 +916,55 @@ async function updateToolStatsManually(toolId: string) {
 async function updateToolStats(toolId: string) {
   await updateToolStatsSimple(toolId)
 }
+// Add this to your existing actions.ts file
+export async function deleteCommunityPost(postId: string) {
+  try {
+    const supabaseClient = await createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser()
+
+    if (authError || !user) {
+      return { error: "You must be logged in to delete posts" }
+    }
+
+    // Check if user owns this post
+    const { data: post, error: postError } = await supabaseClient
+      .from("community_posts")
+      .select("id, author_id")
+      .eq("id", postId)
+      .single()
+
+    if (postError || !post) {
+      return { error: "Post not found" }
+    }
+
+    if (post.author_id !== user.id) {
+      return { error: "You can only delete your own posts" }
+    }
+
+    // Delete related data first (foreign key constraints)
+    await Promise.all([
+      supabaseClient.from("community_comments").delete().eq("post_id", postId),
+      supabaseClient.from("community_post_likes").delete().eq("post_id", postId),
+      supabaseClient.from("community_comment_likes").delete().eq("post_id", postId),
+    ])
+
+    // Delete the post
+    const { error: deleteError } = await supabaseClient.from("community_posts").delete().eq("id", postId)
+
+    if (deleteError) {
+      console.error("Error deleting post:", deleteError)
+      return { error: "Failed to delete post" }
+    }
+
+    revalidatePath("/community")
+    revalidatePath("/profile")
+    return { success: "Post deleted successfully" }
+  } catch (error) {
+    console.error("Error deleting post:", error)
+    return { error: "An unexpected error occurred" }
+  }
+}
