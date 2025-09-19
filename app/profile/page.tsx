@@ -213,11 +213,7 @@ export default async function ProfilePage() {
                             <MessageCircle className="h-3 w-3 mr-1" />
                             {comment.helpful_count} helpful
                           </Badge>
-                          <DeleteCommentButton
-                            commentId={comment.id}
-                            commentType="tool"
-                            onSuccess={() => window.location.reload()}
-                          />
+                          <DeleteCommentButton commentId={comment.id} commentType="tool" />
                         </div>
                       </div>
                     </CardContent>
@@ -245,11 +241,7 @@ export default async function ProfilePage() {
                         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{comment.content}</p>
 
                         <div className="flex items-center gap-2">
-                          <DeleteCommentButton
-                            commentId={comment.id}
-                            commentType="community"
-                            onSuccess={() => window.location.reload()}
-                          />
+                          <DeleteCommentButton commentId={comment.id} commentType="community" />
                         </div>
                       </div>
                     </CardContent>
