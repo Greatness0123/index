@@ -181,12 +181,18 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
             
             {/* Image gallery - appears beside text on large screens, below on small screens */}
             {images.length > 0 && (
-              <div className="lg:w-48 flex-shrink-0">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="lg:w-64 flex-shrink-0"> {/* Increased width for larger images */}
+                <div className={cn(
+                  "grid gap-2",
+                  images.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                )}>
                   {images.map((image, index) => (
                     <div
                       key={index}
-                      className="aspect-square cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105"
+                      className={cn(
+                        "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
+                        images.length === 1 ? "aspect-video" : "aspect-square" // Wider aspect for single images
+                      )}
                       onClick={() => openImageModal(index)}
                     >
                       <img
