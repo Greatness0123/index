@@ -559,6 +559,62 @@ export async function updateUserProfile(profileData: {
   }
 }
 
+// NEW FUNCTION: Fetch community posts with media
+export async function getCommunityPosts() {
+  try {
+    const supabaseClient = await createClient()
+
+    // Get current user
+    const { data: { user } } = await supabaseClient.auth.getUser()
+
+    // Fetch posts with media
+    const { data: posts, error } = await supabaseClient
+      .from("community_posts")
+      .select(`
+        *,
+        media:community_post_media(
+          id,
+          media_url,
+          media_type,
+          display_order,
+          created_at
+        )
+      `)
+      .order("is_pinned", { ascending: false })
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching community posts:", error)
+      return { error: "Failed to fetch posts" }
+    }
+
+    // Get user likes if user is authenticated
+    let userLikes = []
+    if (user && posts?.length > 0) {
+      const postIds = posts.map(p => p.id)
+      const { data: likes } = await supabaseClient
+        .from("community_post_likes")
+        .select("post_id")
+        .eq("user_id", user.id)
+        .in("post_id", postIds)
+
+      userLikes = likes?.map(like => like.post_id) || []
+    }
+
+    // Transform posts with media and user likes
+    const transformedPosts = posts?.map(post => ({
+      ...post,
+      media: post.media?.sort((a: any, b: any) => a.display_order - b.display_order) || [],
+      user_has_liked: user ? userLikes.includes(post.id) : false
+    })) || []
+
+    return { posts: transformedPosts }
+  } catch (error) {
+    console.error("Error in getCommunityPosts:", error)
+    return { error: "An unexpected error occurred" }
+  }
+}
+
 export async function createCommunityPost(formData: FormData) {
   const title = formData.get("title") as string
   const content = formData.get("content") as string
