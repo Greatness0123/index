@@ -251,21 +251,28 @@ export function Header({
                     </div>
                     
                     <div className="space-y-2">
-                      <Button variant="outline" className="w-full justify-start h-10" onClick={closeMobileMenu}>
-                        <Filter className="mr-3 h-4 w-4" />
-                        <span className="flex-1 text-left">Filters & Search</span>
-                        <FiltersModal
-                          selectedPricing={selectedPricing}
-                          selectedRating={selectedRating}
-                          onPricingChange={onPricingChange}
-                          onRatingChange={onRatingChange}
-                          onClearFilters={onClearFilters}
-                        />
-                      </Button>
+                      <FiltersModal
+                        selectedPricing={selectedPricing}
+                        selectedRating={selectedRating}
+                        onPricingChange={onPricingChange}
+                        onRatingChange={onRatingChange}
+                        onClearFilters={onClearFilters}
+                        customTrigger={
+                          <Button variant="outline" className="w-full justify-start h-10">
+                            <Filter className="mr-3 h-4 w-4" />
+                            Filter
+                          </Button>
+                        }
+                      />
 
-                      <div className="w-full" onClick={closeMobileMenu}>
-                        <SubmitToolDialog />
-                      </div>
+                      <SubmitToolDialog 
+                        customTrigger={
+                          <Button className="w-full justify-start h-10 gap-3">
+                            <Plus className="h-4 w-4" />
+                            Submit Tool
+                          </Button>
+                        }
+                      />
                     </div>
                   </div>
 
