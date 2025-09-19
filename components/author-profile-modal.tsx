@@ -25,7 +25,7 @@ interface AuthorProfile {
   website_url: string
   twitter_handle: string
   github_handle: string
-  profile_picture_url: string
+  profile_image: string
   created_at: string
   tool_count: number
   post_count: number
@@ -50,8 +50,12 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
     setLoading(true)
 
     try {
-      // Fetch user profile
-      const { data: userProfile } = await supabase.from("users").select("*").eq("id", authorId).single()
+      // Fetch user profile with profile_image
+      const { data: userProfile } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", authorId)
+        .single()
 
       // Fetch user's tools count
       const { count: toolCount } = await supabase
@@ -65,7 +69,14 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
         .from("community_posts")
         .select("*", { count: "exact", head: true })
         .eq("author_id", authorId)
-        .eq("is_approved", true)
+
+      // Get total likes for user's posts
+      const { data: likesData } = await supabase
+        .from("community_posts")
+        .select("like_count")
+        .eq("author_id", authorId)
+
+      const totalLikes = likesData?.reduce((sum, post) => sum + (post.like_count || 0), 0) || 0
 
       // Fetch recent tools
       const { data: tools } = await supabase
@@ -81,7 +92,6 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
         .from("community_posts")
         .select("id, title, content, post_type, like_count, comment_count, created_at")
         .eq("author_id", authorId)
-        .eq("is_approved", true)
         .order("created_at", { ascending: false })
         .limit(3)
 
@@ -90,7 +100,7 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
           ...userProfile,
           tool_count: toolCount || 0,
           post_count: postCount || 0,
-          total_likes: 0, // We can calculate this later if needed
+          total_likes: totalLikes,
         })
       }
 
@@ -113,6 +123,15 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
   const getDisplayName = () => {
     if (!profile) return authorName
     return profile.display_name || profile.full_name || authorName
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
   if (loading) {
@@ -138,8 +157,8 @@ export function AuthorProfileModal({ authorId, authorName, isOpen, onClose }: Au
           {/* Profile Header */}
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={profile?.profile_picture_url || "/placeholder.svg"} />
-              <AvatarFallback className="text-lg">{getDisplayName().charAt(0).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={profile?.profile_image || "/placeholder.svg"} />
+              <AvatarFallback className="text-lg">{getInitials(getDisplayName())}</AvatarFallback>
             </Avatar>
 
             <div className="flex-1 space-y-2">
