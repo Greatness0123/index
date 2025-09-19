@@ -14,6 +14,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Index",
   description: "|Get all tools you need within your reach",
+    generator: 'v0.app'
 }
 
 export default function RootLayout({

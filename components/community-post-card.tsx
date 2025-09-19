@@ -5,7 +5,8 @@ import { Heart, MessageCircle, ExternalLink, Pin, Calendar, User } from "lucide-
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AuthorProfileModal } from "./author-profile-modal"
 import { likeCommunityPost } from "@/lib/actions"
 import Link from "next/link"
 
@@ -14,6 +15,7 @@ interface CommunityPost {
   title: string
   content: string
   post_type: string
+  author_id?: string
   author_name: string | null
   show_author: boolean
   image_url: string | null
@@ -25,6 +27,7 @@ interface CommunityPost {
   view_count: number
   created_at: string
   user_has_liked?: boolean
+  author_profile_picture?: string
 }
 
 interface CommunityPostCardProps {
@@ -36,6 +39,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [liked, setLiked] = useState(post.user_has_liked || false)
   const [likeCount, setLikeCount] = useState(post.like_count)
   const [isLiking, setIsLiking] = useState(false)
+  const [showAuthorModal, setShowAuthorModal] = useState(false)
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -52,6 +56,12 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     }
 
     setIsLiking(false)
+  }
+
+  const handleAuthorClick = () => {
+    if (post.show_author && post.author_id && post.author_name) {
+      setShowAuthorModal(true)
+    }
   }
 
   const getPostTypeColor = (type: string) => {
@@ -81,105 +91,124 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow duration-200">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            {post.is_pinned && <Pin className="h-4 w-4 text-primary shrink-0" />}
-            <Badge variant="outline" className={`text-xs ${getPostTypeColor(post.post_type)}`}>
-              {post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}
-            </Badge>
+    <>
+      <Card className="hover:shadow-md transition-shadow duration-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              {post.is_pinned && <Pin className="h-4 w-4 text-primary shrink-0" />}
+              <Badge variant="outline" className={`text-xs ${getPostTypeColor(post.post_type)}`}>
+                {post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              {formatDate(post.created_at)}
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            {formatDate(post.created_at)}
+
+          <Link href={`/community/${post.id}`}>
+            <h3 className="text-lg font-semibold text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2">
+              {post.title}
+            </h3>
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={post.author_profile_picture || "/placeholder.svg"} />
+              <AvatarFallback className="text-xs">
+                {post.show_author && post.author_name ? (
+                  post.author_name.charAt(0).toUpperCase()
+                ) : (
+                  <User className="h-3 w-3" />
+                )}
+              </AvatarFallback>
+            </Avatar>
+            <span
+              className={`text-sm ${
+                post.show_author && post.author_name && post.author_id
+                  ? "text-primary hover:text-primary/80 cursor-pointer font-medium"
+                  : "text-muted-foreground"
+              }`}
+              onClick={handleAuthorClick}
+            >
+              {post.show_author && post.author_name ? post.author_name : "Anonymous"}
+            </span>
           </div>
-        </div>
+        </CardHeader>
 
-        <Link href={`/community/${post.id}`}>
-          <h3 className="text-lg font-semibold text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2">
-            {post.title}
-          </h3>
-        </Link>
+        <CardContent className="pt-0">
+          <p className="text-muted-foreground mb-4 line-clamp-3">{post.content}</p>
 
-        <div className="flex items-center gap-2">
-          <Avatar className="h-6 w-6">
-            <AvatarFallback className="text-xs">
-              {post.show_author && post.author_name ? (
-                post.author_name.charAt(0).toUpperCase()
-              ) : (
-                <User className="h-3 w-3" />
+          {post.image_url && (
+            <div className="mb-4">
+              <img
+                src={post.image_url || "/placeholder.svg"}
+                alt="Post image"
+                className="w-full h-48 object-cover rounded-lg"
+              />
+            </div>
+          )}
+
+          {post.tags && post.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-4">
+              {post.tags.slice(0, 4).map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs">
+                  #{tag}
+                </Badge>
+              ))}
+              {post.tags.length > 4 && (
+                <Badge variant="secondary" className="text-xs">
+                  +{post.tags.length - 4}
+                </Badge>
               )}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm text-muted-foreground">
-            {post.show_author && post.author_name ? post.author_name : "Anonymous"}
-          </span>
-        </div>
-      </CardHeader>
+            </div>
+          )}
 
-      <CardContent className="pt-0">
-        <p className="text-muted-foreground mb-4 line-clamp-3">{post.content}</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLike}
+                disabled={isLiking}
+                className={`gap-2 ${liked ? "text-red-500" : "text-muted-foreground"}`}
+              >
+                <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+                {likeCount}
+              </Button>
 
-        {post.image_url && (
-          <div className="mb-4">
-            <img
-              src={post.image_url || "/placeholder.svg"}
-              alt="Post image"
-              className="w-full h-48 object-cover rounded-lg"
-            />
-          </div>
-        )}
+              <Link href={`/community/${post.id}`}>
+                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                  <MessageCircle className="h-4 w-4" />
+                  {post.comment_count}
+                </Button>
+              </Link>
+            </div>
 
-        {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-4">
-            {post.tags.slice(0, 4).map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                #{tag}
-              </Badge>
-            ))}
-            {post.tags.length > 4 && (
-              <Badge variant="secondary" className="text-xs">
-                +{post.tags.length - 4}
-              </Badge>
+            {post.external_url && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(post.external_url!, "_blank")}
+                className="gap-2"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Visit
+              </Button>
             )}
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleLike}
-              disabled={isLiking}
-              className={`gap-2 ${liked ? "text-red-500" : "text-muted-foreground"}`}
-            >
-              <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
-              {likeCount}
-            </Button>
-
-            <Link href={`/community/${post.id}`}>
-              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
-                <MessageCircle className="h-4 w-4" />
-                {post.comment_count}
-              </Button>
-            </Link>
-          </div>
-
-          {post.external_url && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open(post.external_url!, "_blank")}
-              className="gap-2"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Visit
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      {post.author_id && post.author_name && (
+        <AuthorProfileModal
+          authorId={post.author_id}
+          authorName={post.author_name}
+          isOpen={showAuthorModal}
+          onClose={() => setShowAuthorModal(false)}
+        />
+      )}
+    </>
   )
 }

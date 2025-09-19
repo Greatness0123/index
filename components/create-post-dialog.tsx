@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Plus, ImageIcon, LinkIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,9 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { createCommunityPost } from "@/lib/actions"
 import { useRouter } from "next/navigation"
+import { useMobile } from "@/hooks/use-mobile"
 
-export function CreatePostDialog() {
-  const [open, setOpen] = useState(false)
+function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -27,7 +28,7 @@ export function CreatePostDialog() {
     if (result.error) {
       setError(result.error)
     } else {
-      setOpen(false)
+      onSuccess()
       router.refresh()
     }
 
@@ -35,87 +36,114 @@ export function CreatePostDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Create Post
+    <form action={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="title">Title *</Label>
+        <Input id="title" name="title" placeholder="What's your post about?" required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="postType">Post Type</Label>
+        <Select name="postType" defaultValue="discussion">
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="discussion">Discussion</SelectItem>
+            <SelectItem value="question">Question</SelectItem>
+            <SelectItem value="showcase">Showcase</SelectItem>
+            <SelectItem value="advertisement">Advertisement</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="content">Content *</Label>
+        <Textarea
+          id="content"
+          name="content"
+          placeholder="Share your thoughts, ask a question, or showcase your work..."
+          rows={4}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="imageUrl">Image URL (optional)</Label>
+        <div className="relative">
+          <ImageIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg" className="pl-10" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="externalUrl">External Link (optional)</Label>
+        <div className="relative">
+          <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input id="externalUrl" name="externalUrl" placeholder="https://your-project.com" className="pl-10" />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="tags">Tags (comma-separated)</Label>
+        <Input id="tags" name="tags" placeholder="productivity, ai, design" />
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Switch id="showAuthor" name="showAuthor" defaultChecked />
+        <Label htmlFor="showAuthor">Show my name as the author</Label>
+      </div>
+
+      {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>}
+
+      <div className="flex justify-end gap-2">
+        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+          {isSubmitting ? "Creating..." : "Create Post"}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      </div>
+    </form>
+  )
+}
+
+export function CreatePostDialog() {
+  const [open, setOpen] = useState(false)
+  const isMobile = useMobile()
+
+  const handleSuccess = () => {
+    setOpen(false)
+  }
+
+  const TriggerButton = (
+    <Button className="gap-2">
+      <Plus className="h-4 w-4" />
+      Create Post
+    </Button>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>{TriggerButton}</DrawerTrigger>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader>
+            <DrawerTitle>Create a New Post</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-4 overflow-y-auto scrollbar-hide">
+            <CreatePostForm onSuccess={handleSuccess} />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{TriggerButton}</DialogTrigger>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto scrollbar-hide">
         <DialogHeader>
           <DialogTitle>Create a New Post</DialogTitle>
         </DialogHeader>
-
-        <form action={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input id="title" name="title" placeholder="What's your post about?" required />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="postType">Post Type</Label>
-            <Select name="postType" defaultValue="discussion">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="discussion">Discussion</SelectItem>
-                <SelectItem value="question">Question</SelectItem>
-                <SelectItem value="showcase">Showcase</SelectItem>
-                <SelectItem value="advertisement">Advertisement</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content">Content *</Label>
-            <Textarea
-              id="content"
-              name="content"
-              placeholder="Share your thoughts, ask a question, or showcase your work..."
-              rows={6}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL (optional)</Label>
-            <div className="relative">
-              <ImageIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg" className="pl-10" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="externalUrl">External Link (optional)</Label>
-            <div className="relative">
-              <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="externalUrl" name="externalUrl" placeholder="https://your-project.com" className="pl-10" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tags">Tags (comma-separated)</Label>
-            <Input id="tags" name="tags" placeholder="productivity, ai, design" />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch id="showAuthor" name="showAuthor" defaultChecked />
-            <Label htmlFor="showAuthor">Show my name as the author</Label>
-          </div>
-
-          {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>}
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Post"}
-            </Button>
-          </div>
-        </form>
+        <CreatePostForm onSuccess={handleSuccess} />
       </DialogContent>
     </Dialog>
   )

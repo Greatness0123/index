@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useFormStatus } from "react-dom"
-import { Plus, Loader2 } from "lucide-react"
+import { Plus, Loader2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -32,6 +32,7 @@ import { submitTool } from "@/lib/actions"
 import { useMobile } from "@/hooks/use-mobile"
 import { ImageUpload } from "./image-upload"
 import { ScreenshotUpload } from "./screenshot-upload"
+import { Badge } from "@/components/ui/badge"
 
 interface Category {
   id: string
@@ -64,18 +65,44 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
   const [screenshots, setScreenshots] = useState<string[]>([])
   const [logoUrlInput, setLogoUrlInput] = useState<string>("")
   const [showAuthor, setShowAuthor] = useState<boolean>(true)
+  const [urls, setUrls] = useState<string[]>([""])
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    url: "",
-    categoryId: "",
     pricing: "",
   })
 
-  const isFormValid = formData.name.trim() !== "" && formData.description.trim() !== "" && formData.url.trim() !== ""
+  const isFormValid = formData.name.trim() !== "" && formData.description.trim() !== "" && urls[0].trim() !== ""
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const addUrl = () => {
+    setUrls([...urls, ""])
+  }
+
+  const removeUrl = (index: number) => {
+    if (urls.length > 1) {
+      setUrls(urls.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateUrl = (index: number, value: string) => {
+    const newUrls = [...urls]
+    newUrls[index] = value
+    setUrls(newUrls)
+  }
+
+  const addCategory = (categoryId: string) => {
+    if (!selectedCategories.includes(categoryId)) {
+      setSelectedCategories([...selectedCategories, categoryId])
+    }
+  }
+
+  const removeCategory = (categoryId: string) => {
+    setSelectedCategories(selectedCategories.filter((id) => id !== categoryId))
   }
 
   useEffect(() => {
@@ -98,6 +125,16 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
     formData.append("logoUrl", logoUrl || logoUrlInput)
     formData.append("screenshots", screenshots.join(","))
     formData.append("showAuthor", showAuthor.toString())
+    formData.append("url", urls[0]) // Primary URL
+    formData.append(
+      "additionalUrls",
+      urls
+        .slice(1)
+        .filter((url) => url.trim())
+        .join(","),
+    )
+    formData.append("categoryId", selectedCategories[0] || "") // Primary category
+    formData.append("additionalCategories", selectedCategories.slice(1).join(","))
 
     const result = await submitTool(formData)
 
@@ -113,11 +150,11 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
         setScreenshots([])
         setLogoUrlInput("")
         setShowAuthor(true)
+        setUrls([""])
+        setSelectedCategories([])
         setFormData({
           name: "",
           description: "",
-          url: "",
-          categoryId: "",
           pricing: "",
         })
       }, 2000)
@@ -152,16 +189,27 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="url">Website URL *</Label>
-        <Input
-          id="url"
-          name="url"
-          type="url"
-          placeholder="https://example.com"
-          required
-          value={formData.url}
-          onChange={(e) => handleInputChange("url", e.target.value)}
-        />
+        <Label>Website URLs *</Label>
+        {urls.map((url, index) => (
+          <div key={index} className="flex gap-2">
+            <Input
+              type="url"
+              placeholder={index === 0 ? "https://example.com (Primary URL)" : "https://example.com (Additional URL)"}
+              required={index === 0}
+              value={url}
+              onChange={(e) => updateUrl(index, e.target.value)}
+            />
+            {index > 0 && (
+              <Button type="button" variant="outline" size="sm" onClick={() => removeUrl(index)}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={addUrl} className="w-full bg-transparent">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Another URL
+        </Button>
       </div>
 
       <ImageUpload label="Tool Logo/Icon" onImageUploaded={setLogoUrl} currentImage={logoUrl} bucket="tool-images" />
@@ -184,23 +232,32 @@ function SubmitForm({ onSuccess }: { onSuccess: () => void }) {
       <ScreenshotUpload onScreenshotsUploaded={setScreenshots} currentScreenshots={screenshots} maxFiles={5} />
 
       <div className="space-y-2">
-        <Label htmlFor="categoryId">Category</Label>
-        <Select
-          name="categoryId"
-          value={formData.categoryId}
-          onValueChange={(value) => handleInputChange("categoryId", value)}
-        >
+        <Label>Categories</Label>
+        <Select onValueChange={addCategory}>
           <SelectTrigger>
-            <SelectValue placeholder="Select a category" />
+            <SelectValue placeholder="Select categories" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[200px] overflow-y-auto">
             {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
+              <SelectItem key={category.id} value={category.id} disabled={selectedCategories.includes(category.id)}>
                 {category.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {selectedCategories.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {selectedCategories.map((categoryId) => {
+              const category = categories.find((c) => c.id === categoryId)
+              return category ? (
+                <Badge key={categoryId} variant="secondary" className="flex items-center gap-1">
+                  {category.name}
+                  <X className="h-3 w-3 cursor-pointer" onClick={() => removeCategory(categoryId)} />
+                </Badge>
+              ) : null
+            })}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -320,7 +377,7 @@ export function SubmitToolDialog() {
               Share an amazing tool with the community. All submissions are reviewed before being published.
             </DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-4 overflow-y-auto">
+          <div className="px-4 pb-4 overflow-y-auto scrollbar-hide">
             <SubmitForm onSuccess={handleSuccess} />
           </div>
         </DrawerContent>
@@ -331,7 +388,7 @@ export function SubmitToolDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{TriggerButton}</DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto scrollbar-hide">
         <DialogHeader>
           <DialogTitle>Submit a New Tool</DialogTitle>
           <DialogDescription>

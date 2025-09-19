@@ -2,11 +2,12 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ProfileSettings } from "@/components/profile-settings"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Star, MessageCircle, Heart, Trash2 } from "lucide-react"
+import { ArrowLeft, Star, MessageCircle, Heart } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { DeleteCommentButton } from "@/components/delete-comment-button"
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -212,14 +213,11 @@ export default async function ProfilePage() {
                             <MessageCircle className="h-3 w-3 mr-1" />
                             {comment.helpful_count} helpful
                           </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Delete
-                          </Button>
+                          <DeleteCommentButton
+                            commentId={comment.id}
+                            commentType="tool"
+                            onSuccess={() => window.location.reload()}
+                          />
                         </div>
                       </div>
                     </CardContent>
@@ -247,14 +245,11 @@ export default async function ProfilePage() {
                         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{comment.content}</p>
 
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Delete
-                          </Button>
+                          <DeleteCommentButton
+                            commentId={comment.id}
+                            commentType="community"
+                            onSuccess={() => window.location.reload()}
+                          />
                         </div>
                       </div>
                     </CardContent>
