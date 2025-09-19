@@ -247,14 +247,14 @@ export async function submitComment(toolId: string, content: string, rating: num
 
       if (statsError) {
         console.error("Error updating tool statistics:", statsError)
-        // Don't fail the comment submission if stats update fails
       }
     } catch (statsError) {
       console.error("Error updating tool statistics:", statsError)
-      // Don't fail the comment submission if stats update fails
     }
 
+    // ADD THIS LINE to revalidate the page
     revalidatePath(`/tools/${toolId}`)
+    
     return { success: "Comment submitted successfully!" }
   } catch (error) {
     console.error("Error submitting comment:", error)
