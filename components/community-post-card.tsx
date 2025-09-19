@@ -180,29 +180,34 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
             </div>
             
             {/* Image gallery - appears beside text on large screens, below on small screens */}
-            {images.length > 0 && (
-              <div className="lg:w-80 flex-shrink-0"> {/* Increased width for larger desktop images */}
-                <div className={cn(
-                  "grid gap-2",
-                  images.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                )}>
-                  {images.map((image, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
-                        images.length === 1 ? "aspect-video" : "aspect-square", // Wider aspect for single images
-                        "lg:max-w-none" // Remove max-width constraints on desktop
-                      )}
-                      onClick={() => openImageModal(index)}
-                    >
-                      <img
-                        src={image || "/placeholder.svg"}
-                        alt={`Post image ${index + 1}`}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  ))}
+           {images.length > 0 && (
+  <div className="lg:w-80 lg:mr-4 flex-shrink-0"> {/* Using margin-right instead */}
+    <div className={cn(
+      "grid gap-2",
+      images.length === 1 ? "grid-cols-1" : "grid-cols-2"
+    )}>
+      {images.map((image, index) => (
+        <div
+          key={index}
+          className={cn(
+            "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-transform hover:scale-105",
+            images.length === 1 
+              ? "aspect-video lg:min-h-72" // Even taller for single images
+              : "aspect-square lg:min-h-36", // Taller for grid images
+            "lg:max-w-none"
+          )}
+          onClick={() => openImageModal(index)}
+        >
+          <img
+            src={image || "/placeholder.svg"}
+            alt={`Post image ${index + 1}`}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+)}
                 </div>
               </div>
             )}
