@@ -5,10 +5,11 @@ import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Calendar, User, ExternalLink, Heart, MessageCircle, Eye, Play, ChevronLeft, ChevronRight, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CommunityCommentsSection } from "@/components/community-comments-section"
+import { AuthorProfileModal } from "@/components/author-profile-modal"
 import { createClient } from "@/lib/supabase/client"
 import { likeCommunityPost } from "@/lib/actions"
 import { cn } from "@/lib/utils"
@@ -82,6 +83,8 @@ export default function CommunityPostPage() {
   const [isLiking, setIsLiking] = useState(false)
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
+  const [authorProfileImage, setAuthorProfileImage] = useState<string>("")
+  const [showAuthorModal, setShowAuthorModal] = useState(false)
 
   const supabase = createClient()
 
@@ -114,6 +117,20 @@ export default function CommunityPostPage() {
       setPost(data)
       setLiked(data.user_has_liked || false)
       setLikeCount(data.like_count)
+
+      // Fetch author's profile image if author exists and shows their identity
+      if (data.author_id && data.show_author) {
+        const { data: authorProfile } = await supabase
+          .from("users")
+          .select("profile_image")
+          .eq("id", data.author_id)
+          .single()
+        
+        if (authorProfile?.profile_image) {
+          setAuthorProfileImage(authorProfile.profile_image)
+        }
+      }
+
       setLoading(false)
 
       // Increment view count
@@ -138,6 +155,12 @@ export default function CommunityPostPage() {
     }
 
     setIsLiking(false)
+  }
+
+  const handleAuthorClick = () => {
+    if (post?.show_author && post?.author_id && post?.author_name) {
+      setShowAuthorModal(true)
+    }
   }
 
   const openMediaModal = (index: number) => {
@@ -183,6 +206,15 @@ export default function CommunityPostPage() {
       hour: "2-digit",
       minute: "2-digit",
     })
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
 
   // Parse media URLs from the database
@@ -297,15 +329,23 @@ export default function CommunityPostPage() {
 
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
+                  <AvatarImage src={authorProfileImage || "/placeholder.svg"} />
                   <AvatarFallback>
                     {post.show_author && post.author_name ? (
-                      post.author_name.charAt(0).toUpperCase()
+                      getInitials(post.author_name)
                     ) : (
                       <User className="h-4 w-4" />
                     )}
                   </AvatarFallback>
                 </Avatar>
-                <span className="font-medium">
+                <span 
+                  className={`font-medium ${
+                    post.show_author && post.author_name && post.author_id
+                      ? "text-primary hover:text-primary/80 cursor-pointer"
+                      : ""
+                  }`}
+                  onClick={handleAuthorClick}
+                >
                   {post.show_author && post.author_name ? post.author_name : "Anonymous"}
                 </span>
               </div>
@@ -322,10 +362,10 @@ export default function CommunityPostPage() {
                     {/* Only show tabs if both images and videos exist */}
                     {images.length > 0 && videos.length > 0 && (
                       <TabsList className="grid w-full grid-cols-2 mb-6 max-w-md">
-                        <TabsTrigger value="images" className="text-sm">
+                        <TabsTrigger value="images" type="button" className="text-sm">
                           Images ({images.length})
                         </TabsTrigger>
-                        <TabsTrigger value="videos" className="text-sm">
+                        <TabsTrigger value="videos" type="button" className="text-sm">
                           Videos ({videos.length})
                         </TabsTrigger>
                       </TabsList>
@@ -573,6 +613,16 @@ export default function CommunityPostPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Author Profile Modal */}
+      {post.author_id && post.author_name && (
+        <AuthorProfileModal
+          authorId={post.author_id}
+          authorName={post.author_name}
+          isOpen={showAuthorModal}
+          onClose={() => setShowAuthorModal(false)}
+        />
+      )}
     </>
   )
 }
