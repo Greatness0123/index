@@ -222,7 +222,7 @@ export async function submitComment(toolId: string, content: string, rating: num
         user_id: user.id,
         content: content.trim(),
         rating,
-        is_approved: true,
+        is_approved: true, // Set to false if you need moderation
       })
       .select(`
         id,
@@ -231,7 +231,7 @@ export async function submitComment(toolId: string, content: string, rating: num
         created_at,
         user_id,
         tool_id,
-        users!inner(display_name, full_name, email)
+        users!inner(id, email, full_name, display_name)
       `)
       .single()
 
@@ -252,7 +252,7 @@ export async function submitComment(toolId: string, content: string, rating: num
       console.error("Error updating tool statistics:", statsError)
     }
 
-    // ADD THIS LINE to revalidate the page
+    // This is crucial for refreshing the page
     revalidatePath(`/tools/${toolId}`)
     
     return { success: "Comment submitted successfully!" }
