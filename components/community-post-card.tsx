@@ -207,251 +207,284 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
 
   return (
     <>
-      <Card className="hover:shadow-md transition-shadow duration-200 overflow-hidden">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3 flex-1">
-              {post.is_pinned && <Pin className="h-4 w-4 text-primary shrink-0" />}
-              <Badge variant="outline" className={`text-xs ${getPostTypeColor(post.post_type)}`}>
-                {post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}
-              </Badge>
+      <Link href={`/community/${post.id}`} className="block">
+        <Card className="hover:shadow-md transition-shadow duration-200 overflow-hidden cursor-pointer">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3 flex-1">
+                {post.is_pinned && <Pin className="h-4 w-4 text-primary shrink-0" />}
+                <Badge variant="outline" className={`text-xs ${getPostTypeColor(post.post_type)}`}>
+                  {post.post_type.charAt(0).toUpperCase() + post.post_type.slice(1)}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                {formatDate(post.created_at)}
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              {formatDate(post.created_at)}
-            </div>
-          </div>
 
-          <Link href={`/community/${post.id}`}>
-            <h3 className="text-lg font-semibold text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2">
+            <h3 className="text-lg font-semibold text-foreground hover:text-primary transition-colors line-clamp-2">
               {post.title}
             </h3>
-          </Link>
 
-          <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src={post.author_profile_picture || "/placeholder.svg"} />
-              <AvatarFallback className="text-xs">
-                {post.show_author && post.author_name ? (
-                  post.author_name.charAt(0).toUpperCase()
-                ) : (
-                  <User className="h-3 w-3" />
-                )}
-              </AvatarFallback>
-            </Avatar>
-            <span
-              className={`text-sm ${
-                post.show_author && post.author_name && post.author_id
-                  ? "text-primary hover:text-primary/80 cursor-pointer font-medium"
-                  : "text-muted-foreground"
-              }`}
-              onClick={handleAuthorClick}
-            >
-              {post.show_author && post.author_name ? post.author_name : "Anonymous"}
-            </span>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pt-0">
-          {/* Content and Media Layout */}
-          <div className={cn(
-            "flex flex-col gap-4 mb-4",
-            hasMedia && "md:flex-row md:gap-6"
-          )}>
-            {/* Text content */}
-            <div className={cn(
-              "flex-1 min-w-0",
-              hasMedia && "md:flex-[3]"
-            )}>
-              <p className="text-muted-foreground leading-relaxed">{post.content}</p>
-            </div>
-            
-            {/* Media Gallery - Only show if there's media */}
-            {hasMedia && (
-              <div className={cn(
-                "flex-shrink-0",
-                hasMedia && "md:flex-[2] md:max-w-md"
-              )}>
-                <Tabs value={activeMediaTab} onValueChange={(value) => setActiveMediaTab(value as 'images' | 'videos')} className="w-full">
-                  {/* Only show tabs if both images and videos exist */}
-                  {images.length > 0 && videos.length > 0 && (
-                    <TabsList className="grid w-full grid-cols-2 mb-3">
-                      <TabsTrigger value="images" className="text-xs">
-                        Images ({images.length})
-                      </TabsTrigger>
-                      <TabsTrigger value="videos" className="text-xs">
-                        Videos ({videos.length})
-                      </TabsTrigger>
-                    </TabsList>
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarImage src={post.author_profile_picture || "/placeholder.svg"} />
+                <AvatarFallback className="text-xs">
+                  {post.show_author && post.author_name ? (
+                    post.author_name.charAt(0).toUpperCase()
+                  ) : (
+                    <User className="h-3 w-3" />
                   )}
-                  
-                  {/* Images Tab */}
-                  <TabsContent value="images" className={images.length === 0 ? "hidden" : "m-0"}>
-                    {images.length > 0 && (
-                      <div className={cn(
-                        "grid gap-3",
-                        images.length === 1 
-                          ? "grid-cols-1" 
-                          : images.length === 2 
-                            ? "grid-cols-2 md:grid-cols-1" 
-                            : images.length === 3
-                              ? "grid-cols-2 md:grid-cols-2"
-                              : "grid-cols-2"
-                      )}>
-                        {images.map((imageUrl, index) => (
-                          <div
-                            key={index}
-                            className={cn(
-                              "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300",
-                              images.length === 1 
-                                ? "aspect-video md:min-h-[200px]" 
-                                : images.length === 2
-                                  ? "aspect-square md:aspect-video md:min-h-[150px]"
-                                  : "aspect-square md:min-h-[120px]",
-                              "w-full"
-                            )}
-                            onClick={() => openMediaModal(index)}
-                          >
-                            <img
-                              src={imageUrl || "/placeholder.svg"}
-                              alt={`Post image ${index + 1}`}
-                              className="h-full w-full object-cover transition-transform duration-300"
-                              loading="lazy"
-                              onError={(e) => {
-                                e.currentTarget.src = "/placeholder.svg"
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
+                </AvatarFallback>
+              </Avatar>
+              <span
+                className={`text-sm ${
+                  post.show_author && post.author_name && post.author_id
+                    ? "text-primary hover:text-primary/80 cursor-pointer font-medium"
+                    : "text-muted-foreground"
+                }`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleAuthorClick()
+                }}
+              >
+                {post.show_author && post.author_name ? post.author_name : "Anonymous"}
+              </span>
+            </div>
+          </CardHeader>
+
+          <CardContent className="pt-0">
+            {/* Content and Media Layout */}
+            <div className={cn(
+              "flex flex-col gap-4 mb-4",
+              hasMedia && "md:flex-row md:gap-6"
+            )}>
+              {/* Text content */}
+              <div className={cn(
+                "flex-1 min-w-0",
+                hasMedia && "md:flex-[3]"
+              )}>
+                <p className="text-muted-foreground leading-relaxed">{post.content}</p>
+              </div>
+              
+              {/* Media Gallery - Only show if there's media */}
+              {hasMedia && (
+                <div 
+                  className={cn(
+                    "flex-shrink-0",
+                    hasMedia && "md:flex-[2] md:max-w-md"
+                  )}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                >
+                  <Tabs value={activeMediaTab} onValueChange={(value) => setActiveMediaTab(value as 'images' | 'videos')} className="w-full">
+                    {/* Only show tabs if both images and videos exist */}
+                    {images.length > 0 && videos.length > 0 && (
+                      <TabsList className="grid w-full grid-cols-2 mb-3">
+                        <TabsTrigger value="images" className="text-xs">
+                          Images ({images.length})
+                        </TabsTrigger>
+                        <TabsTrigger value="videos" className="text-xs">
+                          Videos ({videos.length})
+                        </TabsTrigger>
+                      </TabsList>
                     )}
-                  </TabsContent>
-                  
-                  {/* Videos Tab */}
-                  <TabsContent value="videos" className={videos.length === 0 ? "hidden" : "m-0"}>
-                    {videos.length > 0 && (
-                      <div className={cn(
-                        "grid gap-3",
-                        videos.length === 1 
-                          ? "grid-cols-1" 
-                          : videos.length === 2 
-                            ? "grid-cols-2 md:grid-cols-1" 
-                            : "grid-cols-2"
-                      )}>
-                        {videos.map((videoUrl, index) => (
-                          <div
-                            key={index}
-                            className={cn(
-                              "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300 relative group",
-                              videos.length === 1 
-                                ? "aspect-video md:min-h-[200px]" 
-                                : "aspect-video md:min-h-[150px]",
-                              "w-full"
-                            )}
-                            onClick={() => openMediaModal(images.length + index)}
-                          >
-                            {/* Video Thumbnail */}
-                            {isYouTubeUrl(videoUrl) ? (
-                              <div className="relative h-full w-full">
-                                <img
-                                  src={getVideoThumbnail(videoUrl) || "/placeholder.svg"}
-                                  alt={`Video ${index + 1}`}
-                                  className="h-full w-full object-cover transition-transform duration-300"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    e.currentTarget.src = "/placeholder.svg"
-                                  }}
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-                                  <div className="bg-red-600 text-white rounded-full p-3">
-                                    <Play className="h-6 w-6 fill-current" />
+                    
+                    {/* Images Tab */}
+                    <TabsContent value="images" className={images.length === 0 ? "hidden" : "m-0"}>
+                      {images.length > 0 && (
+                        <div className={cn(
+                          "grid gap-3",
+                          images.length === 1 
+                            ? "grid-cols-1" 
+                            : images.length === 2 
+                              ? "grid-cols-2 md:grid-cols-1" 
+                              : images.length === 3
+                                ? "grid-cols-2 md:grid-cols-2"
+                                : "grid-cols-2"
+                        )}>
+                          {images.map((imageUrl, index) => (
+                            <div
+                              key={index}
+                              className={cn(
+                                "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300",
+                                images.length === 1 
+                                  ? "aspect-video md:min-h-[200px]" 
+                                  : images.length === 2
+                                    ? "aspect-square md:aspect-video md:min-h-[150px]"
+                                    : "aspect-square md:min-h-[120px]",
+                                "w-full"
+                              )}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                openMediaModal(index)
+                              }}
+                            >
+                              <img
+                                src={imageUrl || "/placeholder.svg"}
+                                alt={`Post image ${index + 1}`}
+                                className="h-full w-full object-cover transition-transform duration-300"
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg"
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+                    
+                    {/* Videos Tab */}
+                    <TabsContent value="videos" className={videos.length === 0 ? "hidden" : "m-0"}>
+                      {videos.length > 0 && (
+                        <div className={cn(
+                          "grid gap-3",
+                          videos.length === 1 
+                            ? "grid-cols-1" 
+                            : videos.length === 2 
+                              ? "grid-cols-2 md:grid-cols-1" 
+                              : "grid-cols-2"
+                        )}>
+                          {videos.map((videoUrl, index) => (
+                            <div
+                              key={index}
+                              className={cn(
+                                "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300 relative group",
+                                videos.length === 1 
+                                  ? "aspect-video md:min-h-[200px]" 
+                                  : "aspect-video md:min-h-[150px]",
+                                "w-full"
+                              )}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                openMediaModal(images.length + index)
+                              }}
+                            >
+                              {/* Video Thumbnail */}
+                              {isYouTubeUrl(videoUrl) ? (
+                                <div className="relative h-full w-full">
+                                  <img
+                                    src={getVideoThumbnail(videoUrl) || "/placeholder.svg"}
+                                    alt={`Video ${index + 1}`}
+                                    className="h-full w-full object-cover transition-transform duration-300"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      e.currentTarget.src = "/placeholder.svg"
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                                    <div className="bg-red-600 text-white rounded-full p-3">
+                                      <Play className="h-6 w-6 fill-current" />
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ) : isVimeoUrl(videoUrl) ? (
-                              <div className="relative h-full w-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                <div className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3">
-                                  <Play className="h-6 w-6 fill-current" />
-                                </div>
-                                <div className="absolute bottom-2 right-2 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded">
-                                  Vimeo
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="relative h-full w-full">
-                                <video
-                                  src={videoUrl}
-                                  className="h-full w-full object-cover"
-                                  preload="metadata"
-                                  muted
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                              ) : isVimeoUrl(videoUrl) ? (
+                                <div className="relative h-full w-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                                   <div className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3">
                                     <Play className="h-6 w-6 fill-current" />
                                   </div>
+                                  <div className="absolute bottom-2 right-2 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded">
+                                    Vimeo
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </div>
-            )}
-          </div>
-
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-4">
-              {post.tags.slice(0, 4).map((tag, index) => (
-                <Badge key={index} variant="secondary" className="text-xs">
-                  #{tag}
-                </Badge>
-              ))}
-              {post.tags.length > 4 && (
-                <Badge variant="secondary" className="text-xs">
-                  +{post.tags.length - 4}
-                </Badge>
+                              ) : (
+                                <div className="relative h-full w-full">
+                                  <video
+                                    src={videoUrl}
+                                    className="h-full w-full object-cover"
+                                    preload="metadata"
+                                    muted
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                                    <div className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3">
+                                      <Play className="h-6 w-6 fill-current" />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </div>
               )}
             </div>
-          )}
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLike}
-                disabled={isLiking}
-                className={`gap-2 ${liked ? "text-red-500" : "text-muted-foreground"}`}
-              >
-                <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
-                {likeCount}
-              </Button>
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-4">
+                {post.tags.slice(0, 4).map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs">
+                    #{tag}
+                  </Badge>
+                ))}
+                {post.tags.length > 4 && (
+                  <Badge variant="secondary" className="text-xs">
+                    +{post.tags.length - 4}
+                  </Badge>
+                )}
+              </div>
+            )}
 
-              <Link href={`/community/${post.id}`}>
-                <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleLike()
+                  }}
+                  disabled={isLiking}
+                  className={`gap-2 ${liked ? "text-red-500" : "text-muted-foreground"}`}
+                >
+                  <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+                  {likeCount}
+                </Button>
+
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-2 text-muted-foreground"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    // This will just navigate to the same page since the whole card is already a link
+                  }}
+                >
                   <MessageCircle className="h-4 w-4" />
                   {post.comment_count}
                 </Button>
-              </Link>
-            </div>
+              </div>
 
-            {post.external_url && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(post.external_url!, "_blank")}
-                className="gap-2"
-              >
-                <ExternalLink className="h-3 w-3" />
-                Visit
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              {post.external_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    window.open(post.external_url!, "_blank")
+                  }}
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Visit
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* Media Modal */}
       <Dialog open={selectedMediaIndex !== null} onOpenChange={(open) => !open && closeMediaModal()}>
