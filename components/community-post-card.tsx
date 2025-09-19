@@ -174,19 +174,19 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
             {/* Text content */}
             <div className={cn(
               "flex-1 min-w-0",
-              images.length > 0 && "md:flex-[2]"
+              images.length > 0 && "md:flex-[3]"
             )}>
               <p className="text-muted-foreground leading-relaxed">{post.content}</p>
             </div>
             
-            {/* Image gallery - improved for desktop */}
+            {/* Image gallery - bigger for desktop */}
             {images.length > 0 && (
               <div className={cn(
                 "flex-shrink-0",
-                images.length > 0 && "md:flex-[1] md:max-w-xs"
+                images.length > 0 && "md:flex-[2] md:max-w-md"
               )}>
                 <div className={cn(
-                  "grid gap-2",
+                  "grid gap-3",
                   images.length === 1 
                     ? "grid-cols-1" 
                     : images.length === 2 
@@ -199,12 +199,12 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     <div
                       key={index}
                       className={cn(
-                        "cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:scale-105 hover:shadow-lg",
+                        "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300",
                         images.length === 1 
-                          ? "aspect-video" 
+                          ? "aspect-video md:min-h-[200px]" 
                           : images.length === 2
-                            ? "aspect-square md:aspect-video"
-                            : "aspect-square",
+                            ? "aspect-square md:aspect-video md:min-h-[150px]"
+                            : "aspect-square md:min-h-[120px]",
                         "w-full"
                       )}
                       onClick={() => openImageModal(index)}
