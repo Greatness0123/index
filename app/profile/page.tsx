@@ -88,7 +88,7 @@ export default async function ProfilePage() {
     .order("created_at", { ascending: false })
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    // <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/">
