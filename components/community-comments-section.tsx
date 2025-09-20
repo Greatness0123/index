@@ -76,12 +76,15 @@ export function CommunityCommentsSection({
 
       console.log("Simple query result:", { simpleCommentsData, simpleError })
       
-      // Now try the full query
-      const { data: commentsData, error } = await supabase
+      // Try different foreign key reference patterns
+      let commentsData, error
+      
+      // Try pattern 1: users!author_id
+      const { data: attempt1Data, error: attempt1Error } = await supabase
         .from("community_comments")
         .select(`
           *,
-          users!community_comments_author_id_fkey(
+          users!author_id(
             id,
             display_name,
             full_name,
@@ -93,37 +96,48 @@ export function CommunityCommentsSection({
         .eq("is_approved", true)
         .order("created_at", { ascending: true })
 
-      console.log("Full query result:", { commentsData, error })
-
-      if (error) {
-        console.error("Error fetching comments:", error)
-        // If the join fails, fall back to simple query
+      if (!attempt1Error) {
+        commentsData = attempt1Data
+        error = attempt1Error
+        console.log("Pattern 1 worked:", commentsData)
+      } else {
+        console.log("Pattern 1 failed:", attempt1Error)
+        
+        // Try pattern 2: Just use the simple query and get user data separately
         if (simpleCommentsData && !simpleError) {
-          console.log("Using simple query fallback")
-          const transformedComments = (simpleCommentsData || [])
-            .filter(comment => comment.is_approved === true)
-            .map(comment => ({
-              id: comment.id,
-              content: comment.content,
-              author_name: comment.show_author ? (comment.author_name || "Anonymous") : "Anonymous",
-              author_id: comment.author_id,
-              show_author: comment.show_author,
-              like_count: comment.like_count || 0,
-              created_at: comment.created_at,
-              parent_id: comment.parent_id,
-              author_profile_image: null,
-              author_is_verified: false,
-              user_has_liked: false
+          const approvedComments = simpleCommentsData.filter(c => c.is_approved === true)
+          
+          if (approvedComments.length > 0) {
+            // Get user data separately
+            const userIds = [...new Set(approvedComments.map(c => c.author_id).filter(Boolean))]
+            let usersData = []
+            
+            if (userIds.length > 0) {
+              const { data: userData } = await supabase
+                .from("users")
+                .select("id, display_name, full_name, profile_image, is_verified")
+                .in("id", userIds)
+              
+              usersData = userData || []
+            }
+            
+            // Combine the data
+            commentsData = approvedComments.map(comment => ({
+              ...comment,
+              users: usersData.find(u => u.id === comment.author_id) || null
             }))
-
-          setComments(transformedComments)
-          const rootComments = transformedComments.filter(c => !c.parent_id)
-          setCommentCount(rootComments.length)
+            
+            console.log("Manual join worked:", commentsData)
+          } else {
+            commentsData = []
+          }
         }
-        return
       }
 
-      console.log("Fetched comments:", commentsData) // Debug log
+      if (!commentsData) {
+        console.log("All query attempts failed")
+        return
+      }
 
       // Get user likes if authenticated
       let userLikes = []
@@ -138,12 +152,12 @@ export function CommunityCommentsSection({
         userLikes = likesData?.map(l => l.comment_id) || []
       }
 
-      // Transform the data exactly as in the working action.ts
+      // Transform the data
       const transformedComments = (commentsData || []).map(comment => ({
         id: comment.id,
         content: comment.content,
         author_name: comment.show_author 
-          ? (comment.users?.display_name || comment.users?.full_name || "Anonymous")
+          ? (comment.users?.display_name || comment.users?.full_name || comment.author_name || "Anonymous")
           : "Anonymous",
         author_id: comment.author_id,
         show_author: comment.show_author,
@@ -155,7 +169,7 @@ export function CommunityCommentsSection({
         user_has_liked: userLikes.includes(comment.id)
       }))
 
-      console.log("Transformed comments:", transformedComments) // Debug log
+      console.log("Transformed comments:", transformedComments)
       setComments(transformedComments)
       
       // Update comment count to match actual fetched comments
