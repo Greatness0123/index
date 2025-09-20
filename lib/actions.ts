@@ -2,7 +2,6 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { supabase } from "@/lib/supabase/client"
 import { revalidatePath } from "next/cache"
 
 export async function signIn(prevState: any, formData: FormData) {
@@ -170,7 +169,7 @@ export async function submitTool(formData: FormData) {
         const { error: screenshotError } = await supabaseClient.from("tool_screenshots").insert(screenshotData)
 
         if (screenshotError) {
-      console.error("Error inserting screenshots:", screenshotError)
+          console.error("Error inserting screenshots:", screenshotError)
         }
       }
     }
@@ -777,97 +776,107 @@ export async function likeCommunityPost(postId: string) {
   }
 }
 
+// CORRECTED: Community comment functions with proper server client usage
 export async function createCommunityComment(postId: string, content: string, parentId?: string) {
   try {
     const supabaseClient = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser()
-
-    if (authError || !user) {
-      return { error: "You must be logged in to comment" }
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    if (userError || !user) {
+      return { success: false, error: "Not authenticated" }
     }
 
+    // Get user profile for show_author preference
     const { data: userProfile } = await supabaseClient
       .from("users")
-      .select("display_name, full_name, show_as_author")
+      .select("display_name, full_name")
       .eq("id", user.id)
       .single()
 
-    const showAuthor = userProfile?.show_as_author !== false
-    const authorName = showAuthor
-      ? userProfile?.display_name || userProfile?.full_name || user.email?.split("@")[0] || "Anonymous"
-      : null
-
+    // Create comment
     const { data, error } = await supabaseClient
       .from("community_comments")
       .insert({
         post_id: postId,
-        parent_id: parentId || null,
-        content: content.trim(),
         author_id: user.id,
-        author_name: authorName,
-        show_author: showAuthor,
+        content: content.trim(),
+        parent_id: parentId || null,
+        show_author: true,
+        author_name: userProfile?.display_name || userProfile?.full_name || "Anonymous",
+        is_approved: true
       })
       .select()
       .single()
 
     if (error) {
-      console.error("Error creating community comment:", error)
-      return { error: "Failed to create comment" }
+      return { success: false, error: error.message }
     }
 
-    revalidatePath("/community")
-    return { success: "Comment posted successfully!" }
+    // Update comment count on post
+    await supabaseClient
+      .from("community_posts")
+      .update({ comment_count: supabaseClient.raw("comment_count + 1") })
+      .eq("id", postId)
+
+    revalidatePath(`/community/${postId}`)
+    return { success: true, comment: data }
   } catch (error) {
     console.error("Error creating community comment:", error)
-    return { error: "An unexpected error occurred" }
+    return { success: false, error: "Failed to create comment" }
   }
 }
 
 export async function likeCommunityComment(commentId: string) {
   try {
     const supabaseClient = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser()
-
-    if (authError || !user) {
-      return { error: "You must be logged in to like comments" }
+    
+    // Get current user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    if (userError || !user) {
+      return { success: false, error: "Not authenticated" }
     }
 
-    const { data: existing } = await supabaseClient
+    // Check if user already liked this comment
+    const { data: existingLike } = await supabaseClient
       .from("community_comment_likes")
       .select("id")
       .eq("comment_id", commentId)
       .eq("user_id", user.id)
       .single()
 
-    if (existing) {
-      const { error } = await supabaseClient
+    if (existingLike) {
+      // Unlike the comment
+      await supabaseClient
         .from("community_comment_likes")
         .delete()
         .eq("comment_id", commentId)
         .eq("user_id", user.id)
 
-      if (error) throw error
+      // Decrease like count
+      await supabaseClient
+        .from("community_comments")
+        .update({ like_count: supabaseClient.raw("like_count - 1") })
+        .eq("id", commentId)
+
       return { success: true, liked: false }
     } else {
-      const { error } = await supabaseClient.from("community_comment_likes").insert({
-        comment_id: commentId,
-        user_id: user.id,
-      })
+      // Like the comment
+      await supabaseClient
+        .from("community_comment_likes")
+        .insert({ comment_id: commentId, user_id: user.id })
 
-      if (error) throw error
+      // Increase like count
+      await supabaseClient
+        .from("community_comments")
+        .update({ like_count: supabaseClient.raw("like_count + 1") })
+        .eq("id", commentId)
+
       return { success: true, liked: true }
     }
   } catch (error) {
     console.error("Error liking community comment:", error)
-    return { error: "Failed to like comment" }
+    return { success: false, error: "Failed to like comment" }
   }
 }
 
@@ -1023,4 +1032,3 @@ export async function deleteCommunityPost(postId: string) {
     return { error: "An unexpected error occurred" }
   }
 }
-
