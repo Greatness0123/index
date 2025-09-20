@@ -74,6 +74,32 @@ const getVideoThumbnail = (url: string) => {
   return null
 }
 
+// Helper function to safely parse media URLs
+const parseMediaUrls = (mediaData: string | string[] | null): string[] => {
+  if (!mediaData) return []
+  
+  try {
+    if (typeof mediaData === 'string') {
+      // Try parsing as JSON first
+      if (mediaData.trim().startsWith('[') || mediaData.trim().startsWith('{')) {
+        return JSON.parse(mediaData)
+      }
+      // If it's a comma-separated string
+      if (mediaData.includes(',')) {
+        return mediaData.split(',').map(url => url.trim()).filter(url => url.length > 0)
+      }
+      // Single URL
+      return mediaData.trim() ? [mediaData.trim()] : []
+    } else if (Array.isArray(mediaData)) {
+      return mediaData.filter(url => url && url.trim().length > 0)
+    }
+  } catch (error) {
+    console.error('Error parsing media URLs:', error)
+  }
+  
+  return []
+}
+
 export default function CommunityPostPage() {
   const params = useParams()
   const router = useRouter()
@@ -221,36 +247,9 @@ export default function CommunityPostPage() {
       .slice(0, 2)
   }
 
-  // Parse media URLs from the database
-  let images: string[] = []
-  let videos: string[] = []
-
-  if (post) {
-    // Handle different possible formats of media URLs
-    if (post.image_urls) {
-      try {
-        if (typeof post.image_urls === 'string') {
-          images = JSON.parse(post.image_urls)
-        } else if (Array.isArray(post.image_urls)) {
-          images = post.image_urls
-        }
-      } catch {
-        images = []
-      }
-    }
-
-    if (post.video_urls) {
-      try {
-        if (typeof post.video_urls === 'string') {
-          videos = JSON.parse(post.video_urls)
-        } else if (Array.isArray(post.video_urls)) {
-          videos = post.video_urls
-        }
-      } catch {
-        videos = []
-      }
-    }
-  }
+  // Parse media URLs from the database using the helper function
+  const images = post ? parseMediaUrls(post.image_urls) : []
+  const videos = post ? parseMediaUrls(post.video_urls) : []
 
   // Combine all media for modal navigation
   const allMedia = [
@@ -402,11 +401,12 @@ export default function CommunityPostPage() {
                               onClick={() => openMediaModal(index)}
                             >
                               <img
-                                src={imageUrl || "/placeholder.svg"}
+                                src={imageUrl}
                                 alt={`Post image ${index + 1}`}
                                 className="h-full w-full object-cover transition-transform duration-300"
                                 loading="lazy"
                                 onError={(e) => {
+                                  console.error(`Failed to load image: ${imageUrl}`)
                                   e.currentTarget.src = "/placeholder.svg"
                                 }}
                               />
@@ -575,10 +575,11 @@ export default function CommunityPostPage() {
               <div className="flex items-center justify-center h-[85vh]">
                 {allMedia[selectedMediaIndex].type === 'image' ? (
                   <img
-                    src={allMedia[selectedMediaIndex].url || "/placeholder.svg"}
+                    src={allMedia[selectedMediaIndex].url}
                     alt={`Post media ${selectedMediaIndex + 1}`}
                     className="max-h-full max-w-full object-contain rounded-lg"
                     onError={(e) => {
+                      console.error(`Failed to load modal image: ${allMedia[selectedMediaIndex].url}`)
                       e.currentTarget.src = "/placeholder.svg"
                     }}
                   />
