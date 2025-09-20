@@ -43,22 +43,6 @@ interface CommunityPostCardProps {
   isAuthenticated?: boolean
 }
 
-// Function to validate and sanitize image URLs
-const validateImageUrl = (url: string): boolean => {
-  if (!url || typeof url !== 'string') return false
-  
-  // Check if it's a data URL (base64) - these often cause issues
-  if (url.startsWith('data:')) return false
-  
-  // Check if it's a valid HTTP/HTTPS URL
-  try {
-    const urlObj = new URL(url)
-    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
 // Function to check if URL is YouTube
 const isYouTubeUrl = (url: string) => {
   return /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/.test(url)
@@ -95,6 +79,32 @@ const getVideoThumbnail = (url: string) => {
   return null
 }
 
+// Helper function to safely parse media URLs
+const parseMediaUrls = (mediaData: string | string[] | null): string[] => {
+  if (!mediaData) return []
+  
+  try {
+    if (typeof mediaData === 'string') {
+      // Try parsing as JSON first
+      if (mediaData.trim().startsWith('[') || mediaData.trim().startsWith('{')) {
+        return JSON.parse(mediaData)
+      }
+      // If it's a comma-separated string
+      if (mediaData.includes(',')) {
+        return mediaData.split(',').map(url => url.trim()).filter(url => url.length > 0)
+      }
+      // Single URL
+      return mediaData.trim() ? [mediaData.trim()] : []
+    } else if (Array.isArray(mediaData)) {
+      return mediaData.filter(url => url && url.trim().length > 0)
+    }
+  } catch (error) {
+    console.error('Error parsing media URLs:', error)
+  }
+  
+  return []
+}
+
 export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardProps) {
   const [liked, setLiked] = useState(post.user_has_liked || false)
   const [likeCount, setLikeCount] = useState(post.like_count)
@@ -104,7 +114,6 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
   const [authorProfileImage, setAuthorProfileImage] = useState<string>("")
   const [authorIsVerified, setAuthorIsVerified] = useState<boolean>(false)
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set())
 
   const supabase = createClient()
 
@@ -128,42 +137,14 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     fetchAuthorProfile()
   }, [post.author_id, post.show_author])
 
-  // Parse and validate media URLs from the database
-  let images: string[] = []
-  let videos: string[] = []
-
-  // Handle different possible formats of media URLs with validation
-  if (post.images && Array.isArray(post.images)) {
-    images = post.images.filter(validateImageUrl)
-  } else if (post.image_urls) {
-    try {
-      let parsedImages: string[] = []
-      if (typeof post.image_urls === 'string') {
-        parsedImages = JSON.parse(post.image_urls)
-      } else if (Array.isArray(post.image_urls)) {
-        parsedImages = post.image_urls
-      }
-      images = parsedImages.filter(url => url && validateImageUrl(url))
-    } catch {
-      images = []
-    }
-  }
-
-  if (post.videos && Array.isArray(post.videos)) {
-    videos = post.videos.filter(url => url && url.trim() !== '')
-  } else if (post.video_urls) {
-    try {
-      let parsedVideos: string[] = []
-      if (typeof post.video_urls === 'string') {
-        parsedVideos = JSON.parse(post.video_urls)
-      } else if (Array.isArray(post.video_urls)) {
-        parsedVideos = post.video_urls
-      }
-      videos = parsedVideos.filter(url => url && url.trim() !== '')
-    } catch {
-      videos = []
-    }
-  }
+  // Parse media URLs from the database using the helper function
+  const images = post.images && Array.isArray(post.images) 
+    ? post.images 
+    : parseMediaUrls(post.image_urls)
+  
+  const videos = post.videos && Array.isArray(post.videos) 
+    ? post.videos 
+    : parseMediaUrls(post.video_urls)
 
   // Combine all media for modal navigation
   const allMedia = [
@@ -213,15 +194,6 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
     if (selectedMediaIndex !== null && allMedia.length > 0) {
       setSelectedMediaIndex((selectedMediaIndex - 1 + allMedia.length) % allMedia.length)
     }
-  }
-
-  const handleImageLoad = (url: string) => {
-    setLoadedImages(prev => new Set([...prev, url]))
-  }
-
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget
-    img.style.display = 'none'
   }
 
   const getPostTypeColor = (type: string) => {
@@ -294,10 +266,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
 
             <div className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
-                <AvatarImage 
-                  src={authorProfileImage && validateImageUrl(authorProfileImage) ? authorProfileImage : "/placeholder.svg"} 
-                  onError={handleImageError}
-                />
+                <AvatarImage src={authorProfileImage || "/placeholder.svg"} />
                 <AvatarFallback className="text-xs">
                   {post.show_author && post.author_name ? (
                     getInitials(post.author_name)
@@ -340,7 +309,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                 <p className="text-muted-foreground leading-relaxed">{post.content}</p>
               </div>
               
-              {/* Media Gallery - Only show if there's valid media */}
+              {/* Media Gallery - Only show if there's media */}
               {hasMedia && (
                 <div 
                   className={cn(
@@ -382,7 +351,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                             <div
                               key={index}
                               className={cn(
-                                "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300 relative",
+                                "cursor-pointer overflow-hidden rounded-xl border-2 border-gray-200 bg-muted transition-all hover:scale-105 hover:shadow-xl hover:border-gray-300",
                                 images.length === 1 
                                   ? "aspect-video md:min-h-[200px]" 
                                   : images.length === 2
@@ -401,15 +370,11 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                                 alt={`Post image ${index + 1}`}
                                 className="h-full w-full object-cover transition-transform duration-300"
                                 loading="lazy"
-                                onLoad={() => handleImageLoad(imageUrl)}
-                                onError={handleImageError}
+                                onError={(e) => {
+                                  console.error(`Failed to load image: ${imageUrl}`)
+                                  e.currentTarget.src = "/placeholder.svg"
+                                }}
                               />
-                              {/* Loading placeholder */}
-                              {!loadedImages.has(imageUrl) && (
-                                <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center">
-                                  <div className="text-muted-foreground text-sm">Loading...</div>
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
@@ -477,10 +442,6 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                                     className="h-full w-full object-cover"
                                     preload="metadata"
                                     muted
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none'
-                                      e.currentTarget.parentElement!.innerHTML = '<div class="flex items-center justify-center h-full bg-muted text-muted-foreground">Invalid video</div>'
-                                    }}
                                   />
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
                                     <div className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3">
@@ -538,6 +499,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
+                    // This will just navigate to the same page since the whole card is already a link
                   }}
                 >
                   <MessageCircle className="h-4 w-4" />
@@ -607,6 +569,7 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                     alt={`Post media ${selectedMediaIndex + 1}`}
                     className="max-h-full max-w-full object-contain rounded-lg"
                     onError={(e) => {
+                      console.error(`Failed to load modal image: ${allMedia[selectedMediaIndex].url}`)
                       e.currentTarget.src = "/placeholder.svg"
                     }}
                   />
@@ -626,9 +589,6 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                         className="max-h-full max-w-full object-contain rounded-lg"
                         controls
                         autoPlay
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
                       />
                     )}
                   </div>
