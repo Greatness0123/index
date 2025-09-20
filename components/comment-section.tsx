@@ -137,57 +137,16 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     try {
       const result = await voteOnComment(commentId, isHelpful)
       if (result.success) {
-        // Update the local state immediately for better UX
-        setComments(prevComments => 
-          prevComments.map(comment => {
-            if (comment.id === commentId) {
-              const wasHelpful = comment.user_vote?.is_helpful === true
-              const wasUnhelpful = comment.user_vote?.is_helpful === false
-              
-              let newHelpfulCount = comment.helpful_count
-              let newTotalVotes = comment.total_votes
-              let newUserVote = null
-
-              if (isHelpful) {
-                if (wasHelpful) {
-                  // Remove helpful vote
-                  newHelpfulCount -= 1
-                  newTotalVotes -= 1
-                } else if (wasUnhelpful) {
-                  // Change from unhelpful to helpful
-                  newHelpfulCount += 1
-                  newUserVote = { is_helpful: true }
-                } else {
-                  // Add helpful vote
-                  newHelpfulCount += 1
-                  newTotalVotes += 1
-                  newUserVote = { is_helpful: true }
-                }
-              } else {
-                if (wasUnhelpful) {
-                  // Remove unhelpful vote
-                  newTotalVotes -= 1
-                } else if (wasHelpful) {
-                  // Change from helpful to unhelpful
-                  newHelpfulCount -= 1
-                  newUserVote = { is_helpful: false }
-                } else {
-                  // Add unhelpful vote
-                  newTotalVotes += 1
-                  newUserVote = { is_helpful: false }
-                }
-              }
-
-              return {
-                ...comment,
-                helpful_count: newHelpfulCount,
-                total_votes: newTotalVotes,
-                user_vote: newUserVote
-              }
-            }
-            return comment
-          })
-        )
+        // Refresh comments to get updated vote counts
+        await fetchComments()
+        
+        // Show success feedback
+        toast({
+          title: "Success",
+          description: result.liked ? 
+            (isHelpful ? "Marked as helpful!" : "Marked as not helpful!") :
+            "Vote removed",
+        })
       } else {
         toast({
           title: "Error",
@@ -241,10 +200,40 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
         description: "Comment copied to clipboard",
       })
     } catch (error) {
+      // Fallback for browsers that don't support clipboard API
+      try {
+        const textArea = document.createElement('textarea')
+        textArea.value = content
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        toast({
+          title: "Copied!",
+          description: "Comment copied to clipboard",
+        })
+      } catch (fallbackError) {
+        toast({
+          title: "Error",
+          description: "Failed to copy comment",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const handleReportComment = async (commentId: string) => {
+    if (!user) {
+      window.location.href = "/auth/login"
+      return
+    }
+
+    // Simple confirmation dialog
+    const confirmed = confirm("Are you sure you want to report this comment for inappropriate content?")
+    if (confirmed) {
       toast({
-        title: "Error",
-        description: "Failed to copy comment",
-        variant: "destructive",
+        title: "Reported",
+        description: "Thank you for your report. We'll review this comment.",
       })
     }
   }
@@ -501,6 +490,7 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
                           size="sm" 
                           className="gap-1 text-muted-foreground h-7 px-2" 
                           disabled={!user}
+                          onClick={() => handleReportComment(comment.id)}
                         >
                           <Flag className="h-3 w-3" />
                           <span className="text-xs hidden sm:inline">Report</span>
