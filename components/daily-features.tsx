@@ -96,60 +96,117 @@ export function DailyFeatures() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {featuredTools.length === 0 ? (
-            <div className="col-span-4 text-center text-muted-foreground py-8">
-              No featured tools found for today.
-            </div>
-          ) : (
-            featuredTools.map((tool) => (
-              <Card key={tool.id} className="p-4 hover:shadow-lg transition-shadow">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                    {tool.image_url ? (
-                      <Image
-                        src={tool.image_url}
-                        alt={`${tool.name} logo`}
-                        width={40}
-                        height={40}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                        <span className="text-xs font-semibold text-primary">
-                          {tool.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+        {featuredTools.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            No featured tools found for today.
+          </div>
+        ) : (
+          <>
+            {/* Desktop Grid Layout */}
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {featuredTools.map((tool) => (
+                <Card key={tool.id} className="p-4 hover:shadow-lg transition-shadow">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                      {tool.image_url ? (
+                        <Image
+                          src={tool.image_url}
+                          alt={`${tool.name} logo`}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                          <span className="text-xs font-semibold text-primary">
+                            {tool.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-semibold text-sm text-foreground truncate flex-1">{tool.name}</h3>
                   </div>
-                  <h3 className="font-semibold text-sm text-foreground truncate flex-1">{tool.name}</h3>
-                </div>
 
-                <div className="flex items-center gap-2 mb-2">
-                  <Link href={`/tools/${tool.id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full gap-2 text-xs bg-transparent">
-                      <Eye className="h-3 w-3" />
-                      View Details
+                  <div className="flex items-center gap-2 mb-2">
+                    <Link href={`/tools/${tool.id}`} className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full gap-2 text-xs bg-transparent">
+                        <Eye className="h-3 w-3" />
+                        View Details
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-2"
+                      onClick={() => window.open(tool.url, "_blank")}
+                    >
+                      <ExternalLink className="h-3 w-3" />
                     </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="p-2"
-                    onClick={() => window.open(tool.url, "_blank")}
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground mb-1 truncate">{tool.description}</div>
-{/*                 {tool.pricing && (
-                  <div className="text-xs text-accent-foreground">Pricing: {tool.pricing}</div>
-                )} */}
-                <div className="text-xs text-muted-foreground">Rating: {tool.rating} ({tool.rating_count})</div>
-              </Card>
-            ))
-          )}
-        </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-1 truncate">{tool.description}</div>
+                  <div className="text-xs text-muted-foreground">Rating: {tool.rating} ({tool.rating_count})</div>
+                </Card>
+              ))}
+            </div>
+
+            {/* Mobile Horizontal Scrollable Layout */}
+            <div className="md:hidden">
+              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                {featuredTools.map((tool) => (
+                  <Card key={tool.id} className="flex-shrink-0 w-80 p-4 hover:shadow-lg transition-shadow">
+                    <div className="flex items-start gap-4">
+                      {/* Tool Image */}
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                        {tool.image_url ? (
+                          <Image
+                            src={tool.image_url}
+                            alt={`${tool.name} logo`}
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                            <span className="text-sm font-semibold text-primary">
+                              {tool.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tool Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm text-foreground mb-1 truncate">{tool.name}</h3>
+                        <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{tool.description}</p>
+                        <div className="text-xs text-muted-foreground mb-3">
+                          Rating: {tool.rating} ({tool.rating_count})
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          <Link href={`/tools/${tool.id}`} className="flex-1">
+                            <Button variant="outline" size="sm" className="w-full gap-2 text-xs bg-transparent">
+                              <Eye className="h-3 w-3" />
+                              View Details
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-2"
+                            onClick={() => window.open(tool.url, "_blank")}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </section>
   )
