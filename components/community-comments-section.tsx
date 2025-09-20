@@ -47,12 +47,15 @@ export function CommunityCommentsSection({
 
   const supabase = createClient()
 
-  const fetchComments = async () => {
+ const fetchComments = async () => {
+  try {
+    setLoading(true)
+    
     const { data: commentsData, error } = await supabase
       .from("community_comments")
       .select(`
         *,
-        author:users!author_id(
+        users!community_comments_author_id_fkey(
           id,
           display_name,
           full_name,
@@ -69,19 +72,31 @@ export function CommunityCommentsSection({
       return
     }
 
+    console.log("Fetched comments:", commentsData) // Debug log
+
     // Transform the data to match the expected interface
     const transformedComments = (commentsData || []).map(comment => ({
-      ...comment,
-      author_profile_image: comment.author?.profile_image || null,
-      author_is_verified: comment.author?.is_verified || false,
+      id: comment.id,
+      content: comment.content,
       author_name: comment.show_author 
-        ? (comment.author?.display_name || comment.author?.full_name || "Anonymous")
-        : null
+        ? (comment.users?.display_name || comment.users?.full_name || "Anonymous")
+        : null,
+      author_id: comment.author_id,
+      show_author: comment.show_author,
+      like_count: comment.like_count || 0,
+      created_at: comment.created_at,
+      parent_id: comment.parent_id,
+      author_profile_image: comment.users?.profile_image || null,
+      author_is_verified: comment.users?.is_verified || false
     }))
 
     setComments(transformedComments)
+  } catch (error) {
+    console.error("Error in fetchComments:", error)
+  } finally {
     setLoading(false)
   }
+}
 
   const handleSubmitComment = async () => {
     if (!newComment.trim()) return
