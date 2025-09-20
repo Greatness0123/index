@@ -170,7 +170,7 @@ export async function submitTool(formData: FormData) {
         const { error: screenshotError } = await supabaseClient.from("tool_screenshots").insert(screenshotData)
 
         if (screenshotError) {
-          console.error("Error inserting screenshots:", screenshotError)
+      console.error("Error inserting screenshots:", screenshotError)
         }
       }
     }
@@ -201,6 +201,65 @@ export async function submitTool(formData: FormData) {
   }
 }
 
+// NEW FUNCTION: Update tool statistics without triggers
+async function updateToolStatistics(toolId: string) {
+  const supabaseClient = await createClient()
+  
+  try {
+    // Calculate new rating and count
+    const { data: ratingData, error: ratingError } = await supabaseClient
+      .from("comments")
+      .select("rating")
+      .eq("tool_id", toolId)
+      .eq("is_approved", true)
+      .not("rating", "is", null)
+
+    if (ratingError) {
+      console.error("Error fetching ratings:", ratingError)
+      return
+    }
+
+    const ratings = ratingData.map(r => r.rating)
+    const averageRating = ratings.length > 0 
+      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length 
+      : 0
+
+    // Get total comment count
+    const { count: commentCount, error: countError } = await supabaseClient
+      .from("comments")
+      .select("*", { count: "exact" })
+      .eq("tool_id", toolId)
+      .eq("is_approved", true)
+
+    if (countError) {
+      console.error("Error counting comments:", countError)
+      return
+    }
+
+    // Update tools table
+    await supabaseClient
+      .from("tools")
+      .update({
+        rating: Math.round(averageRating * 100) / 100, // Round to 2 decimal places
+        rating_count: ratings.length,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", toolId)
+
+    // Update tool_stats table if it exists
+    await supabaseClient
+      .from("tool_stats")
+      .update({
+        comment_count: commentCount,
+        updated_at: new Date().toISOString()
+      })
+      .eq("tool_id", toolId)
+
+  } catch (error) {
+    console.error("Error updating tool statistics:", error)
+  }
+}
+
 export async function submitComment(toolId: string, content: string, rating: number | null) {
   try {
     const supabaseClient = await createClient()
@@ -214,6 +273,7 @@ export async function submitComment(toolId: string, content: string, rating: num
       return { error: "You must be logged in to submit a comment" }
     }
 
+    // 1. First, insert the comment
     const { data, error } = await supabaseClient
       .from("comments")
       .insert({
@@ -239,17 +299,8 @@ export async function submitComment(toolId: string, content: string, rating: num
       return { error: "Failed to submit comment" }
     }
 
-    try {
-      const { error: statsError } = await supabaseClient.rpc("update_tool_statistics_safe", {
-        target_tool_id: toolId,
-      })
-
-      if (statsError) {
-        console.error("Error updating tool statistics:", statsError)
-      }
-    } catch (statsError) {
-      console.error("Error updating tool statistics:", statsError)
-    }
+    // 2. THEN update the tool rating and stats (no trigger needed!)
+    await updateToolStatistics(toolId)
 
     revalidatePath(`/tools/${toolId}`)
     
@@ -346,17 +397,8 @@ export async function toggleFavorite(toolId: string) {
       if (error) throw error
     }
 
-    try {
-      const { error: statsError } = await supabaseClient.rpc("update_tool_statistics_safe", {
-        target_tool_id: toolId,
-      })
-
-      if (statsError) {
-        console.error("Error updating tool statistics:", statsError)
-      }
-    } catch (statsError) {
-      console.error("Error updating tool statistics:", statsError)
-    }
+    // Update tool statistics after favorite toggle
+    await updateToolStatistics(toolId)
 
     revalidatePath(`/tools/${toolId}`)
     return { success: true }
@@ -560,6 +602,7 @@ export async function updateUserProfile(profileData: {
     return { error: "An unexpected error occurred" }
   }
 }
+
 // UPDATED FUNCTION: Fetch community posts with media URLs stored directly in posts
 export async function getCommunityPosts() {
   try {
@@ -841,6 +884,7 @@ export async function deleteComment(commentId: string) {
       return { error: "You must be logged in to delete comments" }
     }
 
+    // 1. First get the comment to know which tool to update
     const { data: comment, error: commentError } = await supabaseClient
       .from("comments")
       .select("id, user_id, tool_id")
@@ -855,8 +899,10 @@ export async function deleteComment(commentId: string) {
       return { error: "You can only delete your own comments" }
     }
 
+    // 2. Delete related votes first
     await supabaseClient.from("comment_votes").delete().eq("comment_id", commentId)
 
+    // 3. Delete the comment
     const { error: deleteError } = await supabaseClient.from("comments").delete().eq("id", commentId)
 
     if (deleteError) {
@@ -864,17 +910,8 @@ export async function deleteComment(commentId: string) {
       return { error: "Failed to delete comment" }
     }
 
-    try {
-      const { error: statsError } = await supabaseClient.rpc("update_tool_statistics_safe", {
-        target_tool_id: comment.tool_id,
-      })
-
-      if (statsError) {
-        console.error("Error updating tool statistics:", statsError)
-      }
-    } catch (statsError) {
-      console.error("Error updating tool statistics:", statsError)
-    }
+    // 4. Update the tool statistics after deletion
+    await updateToolStatistics(comment.tool_id)
 
     revalidatePath(`/tools/${comment.tool_id}`)
     return { success: "Comment deleted successfully" }
