@@ -12,7 +12,6 @@ import { VerificationBadge } from "@/components/verification-badge"
 import { supabase } from "@/lib/supabase/client"
 import { submitComment, voteOnComment, deleteComment, getComments } from "@/lib/actions"
 import { toast } from "@/hooks/use-toast"
-import { useMediaQuery } from "@/hooks/use-mobile"
 
 interface Comment {
   id: string
@@ -49,7 +48,6 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
   const [hoveredRating, setHoveredRating] = useState(0)
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "helpful">("newest")
   const [refreshing, setRefreshing] = useState(false)
-  const isMobile = useMediaQuery("(max-width: 768px)")
 
   useEffect(() => {
     fetchComments()
@@ -105,6 +103,7 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
       if (result.success) {
         setNewComment("")
         setNewRating(0)
+        // Refresh comments immediately after submission
         await fetchComments()
         toast({
           title: "Success",
@@ -138,18 +137,8 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     try {
       const result = await voteOnComment(commentId, isHelpful)
       if (result.success) {
-        // Update local state immediately for better UX
-        setComments(prev => prev.map(comment => {
-          if (comment.id === commentId) {
-            return {
-              ...comment,
-              helpful_count: result.liked ? comment.helpful_count + 1 : Math.max(0, comment.helpful_count - 1),
-              total_votes: result.liked ? comment.total_votes + 1 : Math.max(0, comment.total_votes - 1),
-              user_vote: result.liked ? { is_helpful: true } : null
-            }
-          }
-          return comment
-        }))
+        // Refresh the comments to get updated vote counts
+        fetchComments()
       } else {
         toast({
           title: "Error",
@@ -342,7 +331,7 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground hidden sm:inline">Sort by:</span>
+          <span className="text-sm text-muted-foreground">Sort by:</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
@@ -374,15 +363,13 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
                     <AvatarFallback>{getInitials(getDisplayName(comment.user))}</AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1 space-y-3 min-w-0">
+                  <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium truncate">{getDisplayName(comment.user)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{getDisplayName(comment.user)}</span>
                         <VerificationBadge isVerified={comment.user?.is_verified || false} size="sm" />
                       </div>
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">
-                        {formatDate(comment.created_at)}
-                      </span>
+                      <span className="text-sm text-muted-foreground">{formatDate(comment.created_at)}</span>
                       {comment.rating && (
                         <div className="flex items-center gap-1">
                           <div className="flex">
@@ -400,91 +387,68 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
                       )}
                     </div>
 
-                    <p className="text-muted-foreground leading-relaxed break-words">{comment.content}</p>
+                    <p className="text-muted-foreground leading-relaxed">{comment.content}</p>
 
-                    {/* Comment Actions - Mobile optimized */}
-                    <div className="flex items-center gap-4 pt-2 flex-wrap">
+                    {/* Comment Actions */}
+                    <div className="flex items-center gap-4 pt-2">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleVote(comment.id, true)}
-                          className={`p-1 h-8 w-8 ${
+                          className={`gap-1 ${
                             comment.user_vote?.is_helpful === true ? "text-green-600 bg-green-50" : ""
                           }`}
                           disabled={!user}
                         >
                           <ThumbsUp className="h-4 w-4" />
-                          {!isMobile && (
-                            <span className="text-xs ml-1">{comment.helpful_count}</span>
-                          )}
+                          <span className="text-xs">{comment.helpful_count}</span>
                         </Button>
 
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleVote(comment.id, false)}
-                          className={`p-1 h-8 w-8 ${comment.user_vote?.is_helpful === false ? "text-red-600 bg-red-50" : ""}`}
+                          className={`gap-1 ${comment.user_vote?.is_helpful === false ? "text-red-600 bg-red-50" : ""}`}
                           disabled={!user}
                         >
                           <ThumbsDown className="h-4 w-4" />
                         </Button>
 
-                        {comment.total_votes > 0 && !isMobile && (
+                        {comment.total_votes > 0 && (
                           <Badge variant="outline" className="text-xs">
                             {getHelpfulPercentage(comment.helpful_count, comment.total_votes)}% helpful
                           </Badge>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyComment(comment.content)}
+                        className="gap-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <Copy className="h-4 w-4" />
+                        <span className="text-xs">Copy</span>
+                      </Button>
+
+                      {user && user.id === comment.user_id && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCopyComment(comment.content)}
-                          className="p-1 h-8 w-8 text-muted-foreground hover:text-foreground"
-                          title="Copy comment"
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
-                          <Copy className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
+                          <span className="text-xs">Delete</span>
                         </Button>
-
-                        {user && user.id === comment.user_id && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteComment(comment.id)}
-                            className="p-1 h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            title="Delete comment"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="p-1 h-8 w-8 text-muted-foreground" 
-                          disabled={!user}
-                          title="Report comment"
-                        >
-                          <Flag className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      {/* Mobile-only vote count display */}
-                      {isMobile && comment.total_votes > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          {getHelpfulPercentage(comment.helpful_count, comment.total_votes)}% helpful
-                        </Badge>
                       )}
-                    </div>
 
-                    {/* Helpful count for mobile */}
-                    {isMobile && (
-                      <div className="text-xs text-muted-foreground pt-1">
-                        {comment.helpful_count} helpful vote{comment.helpful_count !== 1 ? 's' : ''}
-                      </div>
-                    )}
+                      <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" disabled={!user}>
+                        <Flag className="h-4 w-4" />
+                        <span className="text-xs">Report</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
