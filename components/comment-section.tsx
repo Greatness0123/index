@@ -137,8 +137,57 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
     try {
       const result = await voteOnComment(commentId, isHelpful)
       if (result.success) {
-        // Refresh the comments to get updated vote counts
-        fetchComments()
+        // Update the local state immediately for better UX
+        setComments(prevComments => 
+          prevComments.map(comment => {
+            if (comment.id === commentId) {
+              const wasHelpful = comment.user_vote?.is_helpful === true
+              const wasUnhelpful = comment.user_vote?.is_helpful === false
+              
+              let newHelpfulCount = comment.helpful_count
+              let newTotalVotes = comment.total_votes
+              let newUserVote = null
+
+              if (isHelpful) {
+                if (wasHelpful) {
+                  // Remove helpful vote
+                  newHelpfulCount -= 1
+                  newTotalVotes -= 1
+                } else if (wasUnhelpful) {
+                  // Change from unhelpful to helpful
+                  newHelpfulCount += 1
+                  newUserVote = { is_helpful: true }
+                } else {
+                  // Add helpful vote
+                  newHelpfulCount += 1
+                  newTotalVotes += 1
+                  newUserVote = { is_helpful: true }
+                }
+              } else {
+                if (wasUnhelpful) {
+                  // Remove unhelpful vote
+                  newTotalVotes -= 1
+                } else if (wasHelpful) {
+                  // Change from helpful to unhelpful
+                  newHelpfulCount -= 1
+                  newUserVote = { is_helpful: false }
+                } else {
+                  // Add unhelpful vote
+                  newTotalVotes += 1
+                  newUserVote = { is_helpful: false }
+                }
+              }
+
+              return {
+                ...comment,
+                helpful_count: newHelpfulCount,
+                total_votes: newTotalVotes,
+                user_vote: newUserVote
+              }
+            }
+            return comment
+          })
+        )
       } else {
         toast({
           title: "Error",
@@ -331,7 +380,7 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Sort by:</span>
+          <span className="text-sm text-muted-foreground hidden sm:inline">Sort by:</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
@@ -357,97 +406,106 @@ export function CommentSection({ toolId, user }: CommentSectionProps) {
           comments.map((comment) => (
             <Card key={comment.id} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <Avatar>
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                     <AvatarImage src={comment.user?.profile_image || "/placeholder.svg"} />
-                    <AvatarFallback>{getInitials(getDisplayName(comment.user))}</AvatarFallback>
+                    <AvatarFallback className="text-xs sm:text-sm">{getInitials(getDisplayName(comment.user))}</AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1 space-y-3">
+                  <div className="flex-1 space-y-3 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{getDisplayName(comment.user)}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium text-sm truncate">{getDisplayName(comment.user)}</span>
                         <VerificationBadge isVerified={comment.user?.is_verified || false} size="sm" />
                       </div>
-                      <span className="text-sm text-muted-foreground">{formatDate(comment.created_at)}</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(comment.created_at)}</span>
                       {comment.rating && (
                         <div className="flex items-center gap-1">
                           <div className="flex">
                             {Array.from({ length: 5 }).map((_, i) => (
                               <Star
                                 key={i}
-                                className={`h-4 w-4 ${
+                                className={`h-3 w-3 sm:h-4 sm:w-4 ${
                                   i < comment.rating! ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
                                 }`}
                               />
                             ))}
                           </div>
-                          <span className="text-sm font-medium">{comment.rating}</span>
+                          <span className="text-xs font-medium">{comment.rating}</span>
                         </div>
                       )}
                     </div>
 
-                    <p className="text-muted-foreground leading-relaxed">{comment.content}</p>
+                    <p className="text-muted-foreground leading-relaxed text-sm break-words">{comment.content}</p>
 
-                    {/* Comment Actions */}
-                    <div className="flex items-center gap-4 pt-2">
-                      <div className="flex items-center gap-2">
+                    {/* Comment Actions - Mobile Responsive */}
+                    <div className="flex items-center gap-2 pt-2 flex-wrap">
+                      <div className="flex items-center gap-1 sm:gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleVote(comment.id, true)}
-                          className={`gap-1 ${
+                          className={`gap-1 h-7 px-2 ${
                             comment.user_vote?.is_helpful === true ? "text-green-600 bg-green-50" : ""
                           }`}
                           disabled={!user}
                         >
-                          <ThumbsUp className="h-4 w-4" />
-                          <span className="text-xs">{comment.helpful_count}</span>
+                          <ThumbsUp className="h-3 w-3" />
+                          <span className="text-xs hidden sm:inline">Helpful</span>
+                          <span className="text-xs">({comment.helpful_count})</span>
                         </Button>
 
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleVote(comment.id, false)}
-                          className={`gap-1 ${comment.user_vote?.is_helpful === false ? "text-red-600 bg-red-50" : ""}`}
+                          className={`gap-1 h-7 px-2 ${comment.user_vote?.is_helpful === false ? "text-red-600 bg-red-50" : ""}`}
                           disabled={!user}
                         >
-                          <ThumbsDown className="h-4 w-4" />
+                          <ThumbsDown className="h-3 w-3" />
+                          <span className="text-xs hidden sm:inline">Not Helpful</span>
                         </Button>
 
                         {comment.total_votes > 0 && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs h-6">
                             {getHelpfulPercentage(comment.helpful_count, comment.total_votes)}% helpful
                           </Badge>
                         )}
                       </div>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopyComment(comment.content)}
-                        className="gap-1 text-muted-foreground hover:text-foreground"
-                      >
-                        <Copy className="h-4 w-4" />
-                        <span className="text-xs">Copy</span>
-                      </Button>
-
-                      {user && user.id === comment.user_id && (
+                      <div className="flex items-center gap-1 sm:gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleCopyComment(comment.content)}
+                          className="gap-1 text-muted-foreground hover:text-foreground h-7 px-2"
                         >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="text-xs">Delete</span>
+                          <Copy className="h-3 w-3" />
+                          <span className="text-xs hidden sm:inline">Copy</span>
                         </Button>
-                      )}
 
-                      <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" disabled={!user}>
-                        <Flag className="h-4 w-4" />
-                        <span className="text-xs">Report</span>
-                      </Button>
+                        {user && user.id === comment.user_id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span className="text-xs hidden sm:inline">Delete</span>
+                          </Button>
+                        )}
+
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="gap-1 text-muted-foreground h-7 px-2" 
+                          disabled={!user}
+                        >
+                          <Flag className="h-3 w-3" />
+                          <span className="text-xs hidden sm:inline">Report</span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
