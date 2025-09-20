@@ -47,56 +47,83 @@ export function CommunityCommentsSection({
 
   const supabase = createClient()
 
- const fetchComments = async () => {
-  try {
-    setLoading(true)
-    
-    const { data: commentsData, error } = await supabase
-      .from("community_comments")
-      .select(`
-        *,
-        users!community_comments_author_id_fkey(
-          id,
-          display_name,
-          full_name,
-          profile_image,
-          is_verified
-        )
-      `)
-      .eq("post_id", postId)
-      .eq("is_approved", true)
-      .order("created_at", { ascending: true })
+  const fetchComments = async () => {
+    try {
+      setLoading(true)
+      
+      // Get current user if authenticated
+      let currentUserId = null
+      if (isAuthenticated) {
+        const { data: { user } } = await supabase.auth.getUser()
+        currentUserId = user?.id
+      }
+      
+      const { data: commentsData, error } = await supabase
+        .from("community_comments")
+        .select(`
+          *,
+          users!community_comments_author_id_fkey(
+            id,
+            display_name,
+            full_name,
+            profile_image,
+            is_verified
+          )
+        `)
+        .eq("post_id", postId)
+        .eq("is_approved", true)
+        .order("created_at", { ascending: false })
 
-    if (error) {
-      console.error("Error fetching comments:", error)
-      return
+      if (error) {
+        console.error("Error fetching comments:", error)
+        return
+      }
+
+      console.log("Fetched comments:", commentsData) // Debug log
+
+      // If user is authenticated, check their likes
+      let userLikes = []
+      if (currentUserId && commentsData && commentsData.length > 0) {
+        const commentIds = commentsData.map(c => c.id)
+        const { data: likesData } = await supabase
+          .from("community_comment_likes")
+          .select("comment_id")
+          .eq("user_id", currentUserId)
+          .in("comment_id", commentIds)
+
+        userLikes = likesData?.map(l => l.comment_id) || []
+      }
+
+      // Transform the data to match the expected interface
+      const transformedComments = (commentsData || []).map(comment => ({
+        id: comment.id,
+        content: comment.content,
+        author_name: comment.show_author 
+          ? (comment.users?.display_name || comment.users?.full_name || "Anonymous")
+          : "Anonymous",
+        author_id: comment.author_id,
+        show_author: comment.show_author,
+        like_count: comment.like_count || 0,
+        created_at: comment.created_at,
+        parent_id: comment.parent_id,
+        author_profile_image: comment.users?.profile_image || null,
+        author_is_verified: comment.users?.is_verified || false,
+        user_has_liked: userLikes.includes(comment.id)
+      }))
+
+      console.log("Transformed comments:", transformedComments) // Debug log
+      setComments(transformedComments)
+      
+      // Update comment count to match actual fetched comments
+      const rootComments = transformedComments.filter(c => !c.parent_id)
+      setCommentCount(rootComments.length)
+      
+    } catch (error) {
+      console.error("Error in fetchComments:", error)
+    } finally {
+      setLoading(false)
     }
-
-    console.log("Fetched comments:", commentsData) // Debug log
-
-    // Transform the data to match the expected interface
-    const transformedComments = (commentsData || []).map(comment => ({
-      id: comment.id,
-      content: comment.content,
-      author_name: comment.show_author 
-        ? (comment.users?.display_name || comment.users?.full_name || "Anonymous")
-        : null,
-      author_id: comment.author_id,
-      show_author: comment.show_author,
-      like_count: comment.like_count || 0,
-      created_at: comment.created_at,
-      parent_id: comment.parent_id,
-      author_profile_image: comment.users?.profile_image || null,
-      author_is_verified: comment.users?.is_verified || false
-    }))
-
-    setComments(transformedComments)
-  } catch (error) {
-    console.error("Error in fetchComments:", error)
-  } finally {
-    setLoading(false)
   }
-}
 
   const handleSubmitComment = async () => {
     if (!newComment.trim()) return
@@ -106,8 +133,7 @@ export function CommunityCommentsSection({
 
     if (result.success) {
       setNewComment("")
-      setCommentCount((prev) => prev + 1)
-      // Refresh comments
+      // Refresh comments to get the latest data
       await fetchComments()
     }
 
@@ -123,8 +149,7 @@ export function CommunityCommentsSection({
     if (result.success) {
       setReplyContent("")
       setReplyingTo(null)
-      setCommentCount((prev) => prev + 1)
-      // Refresh comments
+      // Refresh comments to get the latest data
       await fetchComments()
     }
 
@@ -134,33 +159,38 @@ export function CommunityCommentsSection({
   const handleLikeComment = async (commentId: string) => {
     if (!isAuthenticated) return
 
-    const result = await likeCommunityComment(commentId)
-    if (result.success) {
-      // Update the comment in the local state
-      setComments(prev => prev.map(comment => {
-        if (comment.id === commentId) {
-          return {
-            ...comment,
-            like_count: result.liked ? comment.like_count + 1 : comment.like_count - 1,
-            user_has_liked: result.liked
-          }
+    // Optimistic update
+    setComments(prev => prev.map(comment => {
+      if (comment.id === commentId) {
+        const wasLiked = comment.user_has_liked
+        return {
+          ...comment,
+          like_count: wasLiked ? comment.like_count - 1 : comment.like_count + 1,
+          user_has_liked: !wasLiked
         }
-        // Also check replies
-        if (comment.replies) {
-          const updatedReplies = comment.replies.map(reply => {
-            if (reply.id === commentId) {
-              return {
-                ...reply,
-                like_count: result.liked ? reply.like_count + 1 : reply.like_count - 1,
-                user_has_liked: result.liked
-              }
+      }
+      // Also check replies
+      if (comment.replies) {
+        const updatedReplies = comment.replies.map(reply => {
+          if (reply.id === commentId) {
+            const wasLiked = reply.user_has_liked
+            return {
+              ...reply,
+              like_count: wasLiked ? reply.like_count - 1 : reply.like_count + 1,
+              user_has_liked: !wasLiked
             }
-            return reply
-          })
-          return { ...comment, replies: updatedReplies }
-        }
-        return comment
-      }))
+          }
+          return reply
+        })
+        return { ...comment, replies: updatedReplies }
+      }
+      return comment
+    }))
+
+    const result = await likeCommunityComment(commentId)
+    if (!result.success) {
+      // Revert on error
+      await fetchComments()
     }
   }
 
@@ -226,10 +256,7 @@ export function CommunityCommentsSection({
         <Avatar className={isReply ? "h-6 w-6" : "h-8 w-8"}>
           <AvatarImage src={comment.author_profile_image || "/placeholder.svg"} />
           <AvatarFallback className={isReply ? "text-xs" : "text-sm"}>
-            {comment.show_author && comment.author_name
-              ? getInitials(comment.author_name)
-              : "A"
-            }
+            {comment.author_name ? getInitials(comment.author_name) : "A"}
           </AvatarFallback>
         </Avatar>
         
@@ -237,10 +264,7 @@ export function CommunityCommentsSection({
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <span className={`font-medium ${isReply ? "text-xs" : "text-sm"}`}>
-                {comment.show_author && comment.author_name
-                  ? comment.author_name
-                  : "Anonymous"
-                }
+                {comment.author_name || "Anonymous"}
               </span>
               <VerificationBadge isVerified={comment.author_is_verified || false} size="sm" />
             </div>
