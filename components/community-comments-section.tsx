@@ -23,6 +23,13 @@ interface Comment {
   author_profile_image?: string | null
   author_is_verified?: boolean
   replies?: Comment[]
+  author?: {
+    id: string
+    display_name?: string
+    full_name?: string
+    profile_image?: string
+    is_verified?: boolean
+  }
 }
 
 interface CommunityCommentsSectionProps {
@@ -58,11 +65,12 @@ export function CommunityCommentsSection({
         currentUserId = user?.id
       }
       
+      // Fetch comments with author data using the correct foreign key reference
       const { data: commentsData, error } = await supabase
         .from("community_comments")
         .select(`
           *,
-          users!community_comments_author_id_fkey(
+          author:users!author_id(
             id,
             display_name,
             full_name,
@@ -81,7 +89,7 @@ export function CommunityCommentsSection({
 
       console.log("Fetched comments:", commentsData) // Debug log
 
-      // If user is authenticated, check their likes
+      // Get user likes if authenticated
       let userLikes = []
       if (currentUserId && commentsData && commentsData.length > 0) {
         const commentIds = commentsData.map(c => c.id)
@@ -99,16 +107,17 @@ export function CommunityCommentsSection({
         id: comment.id,
         content: comment.content,
         author_name: comment.show_author 
-          ? (comment.users?.display_name || comment.users?.full_name || "Anonymous")
+          ? (comment.author?.display_name || comment.author?.full_name || "Anonymous")
           : "Anonymous",
         author_id: comment.author_id,
         show_author: comment.show_author,
         like_count: comment.like_count || 0,
         created_at: comment.created_at,
         parent_id: comment.parent_id,
-        author_profile_image: comment.users?.profile_image || null,
-        author_is_verified: comment.users?.is_verified || false,
-        user_has_liked: userLikes.includes(comment.id)
+        author_profile_image: comment.author?.profile_image || null,
+        author_is_verified: comment.author?.is_verified || false,
+        user_has_liked: userLikes.includes(comment.id),
+        author: comment.author
       }))
 
       console.log("Transformed comments:", transformedComments) // Debug log
@@ -232,6 +241,7 @@ export function CommunityCommentsSection({
   const organizedComments = organizeComments(comments)
 
   const getInitials = (name: string) => {
+    if (!name || name === "Anonymous") return "A"
     return name
       .split(' ')
       .map(n => n[0])
@@ -256,7 +266,7 @@ export function CommunityCommentsSection({
         <Avatar className={isReply ? "h-6 w-6" : "h-8 w-8"}>
           <AvatarImage src={comment.author_profile_image || "/placeholder.svg"} />
           <AvatarFallback className={isReply ? "text-xs" : "text-sm"}>
-            {comment.author_name ? getInitials(comment.author_name) : "A"}
+            {getInitials(comment.author_name || "Anonymous")}
           </AvatarFallback>
         </Avatar>
         
@@ -283,11 +293,11 @@ export function CommunityCommentsSection({
               size="sm"
               onClick={() => handleLikeComment(comment.id)}
               disabled={!isAuthenticated}
-              className={`p-0 h-auto font-normal gap-1 hover:text-red-500 ${
+              className={`p-0 h-auto font-normal gap-1 hover:text-red-500 transition-colors ${
                 comment.user_has_liked ? "text-red-500" : ""
               }`}
             >
-              <Heart className={`h-3 w-3 ${comment.user_has_liked ? "fill-current" : ""}`} />
+              <Heart className={`h-3 w-3 transition-all ${comment.user_has_liked ? "fill-current scale-110" : ""}`} />
               {comment.like_count}
             </Button>
             
@@ -296,7 +306,7 @@ export function CommunityCommentsSection({
                 variant="ghost"
                 size="sm"
                 onClick={() => setReplyingTo(comment.id)}
-                className="p-0 h-auto font-normal gap-1 hover:text-foreground"
+                className="p-0 h-auto font-normal gap-1 hover:text-foreground transition-colors"
               >
                 <Reply className="h-3 w-3" />
                 Reply
