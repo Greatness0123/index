@@ -398,16 +398,36 @@ export function CommunityCommentsSection({
                 </div>
               ))}
             </div>
-          ) : organizedComments.length > 0 ? (
-            <div className="space-y-6">
-              {organizedComments.map((comment) => (
-                <CommentItem key={comment.id} comment={comment} />
-              ))}
-            </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No comments yet. Be the first to share your thoughts!</p>
+            <div>
+              {/* Debug info */}
+              <div className="text-xs text-muted-foreground mb-4">
+                Debug: Total comments: {comments.length}, Organized: {organizedComments.length}
+              </div>
+              
+              {comments.length > 0 ? (
+                <div className="space-y-6">
+                  {organizedComments.length > 0 ? (
+                    organizedComments.map((comment) => (
+                      <CommentItem key={comment.id} comment={comment} />
+                    ))
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="text-yellow-600 bg-yellow-50 p-3 rounded">
+                        Comments exist but organization failed. Showing all comments:
+                      </div>
+                      {comments.map((comment) => (
+                        <CommentItem key={comment.id} comment={comment} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No comments yet. Be the first to share your thoughts!</p>
+                </div>
+              )}
             </div>
           )}
         </div>
