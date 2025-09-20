@@ -72,6 +72,19 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
     return videoPatterns.some(pattern => pattern.test(url))
   }
 
+  // Function to validate if URL is a valid image URL
+  const isValidImageUrl = (url: string) => {
+    const imagePatterns = [
+      /\.(jpg|jpeg|png|gif|bmp|webp|svg)(\?.*)?$/i,
+      /^https?:\/\/.+\.(jpg|jpeg|png|gif|bmp|webp|svg)(\?.*)?$/i,
+      // Allow common image hosting domains even without file extensions
+      /^https?:\/\/(.*\.)?(imgur|cloudinary|unsplash|pexels|pixabay|freepik)\.com\/.+/i,
+      // Allow data URLs for base64 images
+      /^data:image\/.+;base64,.+/i
+    ]
+    return imagePatterns.some(pattern => pattern.test(url))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -84,8 +97,25 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       return
     }
 
-    // Validate video URLs
-    const validVideoUrls = videoUrls.filter(url => url.trim() !== "")
+    // Filter and validate image URLs
+    const validImageUrls = imageUrls
+      .map(url => url.trim())
+      .filter(url => url !== "")
+    
+    if (validImageUrls.length > 0) {
+      const invalidImages = validImageUrls.filter(url => !isValidImageUrl(url))
+      if (invalidImages.length > 0) {
+        setError(`Please enter valid image URLs. Invalid URLs: ${invalidImages.slice(0, 2).join(", ")}${invalidImages.length > 2 ? "..." : ""}`)
+        setIsSubmitting(false)
+        return
+      }
+    }
+
+    // Filter and validate video URLs
+    const validVideoUrls = videoUrls
+      .map(url => url.trim())
+      .filter(url => url !== "")
+    
     if (validVideoUrls.length > 0) {
       const invalidVideos = validVideoUrls.filter(url => !isValidVideoUrl(url))
       if (invalidVideos.length > 0) {
@@ -95,43 +125,49 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       }
     }
 
-    // Create FormData
-    const formData = new FormData()
-    formData.append("title", title.trim())
-    formData.append("content", content.trim())
-    formData.append("postType", postType)
-    formData.append("externalUrl", externalUrl.trim())
-    formData.append("tags", tags.trim())
-    formData.append("showAuthor", showAuthor.toString())
+    try {
+      // Create FormData
+      const formData = new FormData()
+      formData.append("title", title.trim())
+      formData.append("content", content.trim())
+      formData.append("postType", postType)
+      formData.append("externalUrl", externalUrl.trim())
+      formData.append("tags", tags.trim())
+      formData.append("showAuthor", showAuthor.toString())
 
-    // Add image URLs if any
-    const validImageUrls = imageUrls.filter(url => url.trim() !== "")
-    if (validImageUrls.length > 0) {
-      formData.append("imageUrls", validImageUrls.join(","))
-    }
+      // Store URLs as JSON arrays instead of comma-separated strings
+      if (validImageUrls.length > 0) {
+        formData.append("imageUrls", JSON.stringify(validImageUrls))
+      }
 
-    // Add video URLs if any
-    if (validVideoUrls.length > 0) {
-      formData.append("videoUrls", validVideoUrls.join(","))
-    }
+      if (validVideoUrls.length > 0) {
+        formData.append("videoUrls", JSON.stringify(validVideoUrls))
+      }
 
-    const result = await createCommunityPost(formData)
+      console.log("Sending image URLs:", validImageUrls)
+      console.log("Sending video URLs:", validVideoUrls)
 
-    if (result.error) {
-      setError(result.error)
-    } else {
-      // Reset form
-      setTitle("")
-      setContent("")
-      setPostType("discussion")
-      setExternalUrl("")
-      setTags("")
-      setShowAuthor(true)
-      setImageUrls([""])
-      setVideoUrls([""])
-      
-      onSuccess()
-      router.refresh()
+      const result = await createCommunityPost(formData)
+
+      if (result.error) {
+        setError(result.error)
+      } else {
+        // Reset form
+        setTitle("")
+        setContent("")
+        setPostType("discussion")
+        setExternalUrl("")
+        setTags("")
+        setShowAuthor(true)
+        setImageUrls([""])
+        setVideoUrls([""])
+        
+        onSuccess()
+        router.refresh()
+      }
+    } catch (error) {
+      console.error("Error creating post:", error)
+      setError("An unexpected error occurred. Please try again.")
     }
 
     setIsSubmitting(false)
@@ -205,7 +241,12 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
           <TabsContent value="images" className="mt-3">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Add image URLs to your post</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Add image URLs to your post</p>
+                  <p className="text-xs text-muted-foreground">
+                    Supports JPG, PNG, GIF, WebP and popular image hosting sites
+                  </p>
+                </div>
                 <Button type="button" variant="outline" size="sm" onClick={addImageField} className="gap-1">
                   <Plus className="h-3 w-3" />
                   Add Image
@@ -239,7 +280,7 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
                     </div>
                     
                     {/* Image Preview */}
-                    {url.trim() && (
+                    {url.trim() && isValidImageUrl(url) && (
                       <div className="ml-10 relative">
                         <img
                           src={url}
@@ -249,6 +290,12 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
                             e.currentTarget.style.display = 'none'
                           }}
                         />
+                      </div>
+                    )}
+
+                    {url.trim() && !isValidImageUrl(url) && (
+                      <div className="ml-10">
+                        <p className="text-xs text-destructive">Please enter a valid image URL</p>
                       </div>
                     )}
                   </div>
