@@ -653,7 +653,7 @@ export async function getCommunityPosts() {
   }
 }
 
-// UPDATED FUNCTION: Create community post with media URLs stored directly
+// UPDATED FUNCTION: Create community post with media URLs stored directly and fixed base64 handling
 export async function createCommunityPost(formData: FormData) {
   const title = formData.get("title") as string
   const content = formData.get("content") as string
@@ -698,9 +698,44 @@ export async function createCommunityPost(formData: FormData) {
           .filter(Boolean)
       : []
 
-    // Process image and video URLs
-    const imageUrlsArray = imageUrls ? imageUrls.split(",").filter(url => url.trim() !== "") : []
-    const videoUrlsArray = videoUrls ? videoUrls.split(",").filter(url => url.trim() !== "") : []
+    // Fixed: Process image and video URLs with proper base64 handling
+    let imageUrlsArray = []
+    if (imageUrls) {
+      try {
+        // First try to parse as JSON (if it's already an array)
+        imageUrlsArray = JSON.parse(imageUrls)
+      } catch {
+        // If not JSON, it might be a single URL or comma-separated URLs
+        // For base64 data URLs, we need to be more careful with splitting
+        if (imageUrls.includes('data:image/')) {
+          // Handle base64 data URLs - split on patterns like "},data:image/" or "] , data:image/"
+          imageUrlsArray = imageUrls
+            .split(/,(?=data:image\/)/)
+            .map(url => url.trim())
+            .filter(url => url !== "")
+        } else {
+          // Regular URLs can be split normally
+          imageUrlsArray = imageUrls
+            .split(",")
+            .map(url => url.trim())
+            .filter(url => url !== "")
+        }
+      }
+    }
+
+    let videoUrlsArray = []
+    if (videoUrls) {
+      try {
+        // First try to parse as JSON (if it's already an array)
+        videoUrlsArray = JSON.parse(videoUrls)
+      } catch {
+        // If not JSON, split normally (videos are typically not base64)
+        videoUrlsArray = videoUrls
+          .split(",")
+          .map(url => url.trim())
+          .filter(url => url !== "")
+      }
+    }
 
     const { data: postData, error } = await supabaseClient
       .from("community_posts")
