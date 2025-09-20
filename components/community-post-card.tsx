@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { VerificationBadge } from "@/components/verification-badge"
 import { AuthorProfileModal } from "./author-profile-modal"
 import { likeCommunityPost } from "@/lib/actions"
 import { createClient } from "@/lib/supabase/client"
@@ -86,21 +87,23 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number | null>(null)
   const [activeMediaTab, setActiveMediaTab] = useState<'images' | 'videos'>('images')
   const [authorProfileImage, setAuthorProfileImage] = useState<string>("")
+  const [authorIsVerified, setAuthorIsVerified] = useState<boolean>(false)
 
   const supabase = createClient()
 
-  // Fetch author's profile image
+  // Fetch author's profile image and verification status
   useEffect(() => {
     const fetchAuthorProfile = async () => {
       if (post.author_id && post.show_author) {
         const { data } = await supabase
           .from("users")
-          .select("profile_image")
+          .select("profile_image, is_verified")
           .eq("id", post.author_id)
           .single()
         
-        if (data?.profile_image) {
-          setAuthorProfileImage(data.profile_image)
+        if (data) {
+          setAuthorProfileImage(data.profile_image || "")
+          setAuthorIsVerified(data.is_verified || false)
         }
       }
     }
@@ -270,20 +273,23 @@ export function CommunityPostCard({ post, isAuthenticated }: CommunityPostCardPr
                   )}
                 </AvatarFallback>
               </Avatar>
-              <span
-                className={`text-sm ${
-                  post.show_author && post.author_name && post.author_id
-                    ? "text-primary hover:text-primary/80 cursor-pointer font-medium"
-                    : "text-muted-foreground"
-                }`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  handleAuthorClick()
-                }}
-              >
-                {post.show_author && post.author_name ? post.author_name : "Anonymous"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-sm ${
+                    post.show_author && post.author_name && post.author_id
+                      ? "text-primary hover:text-primary/80 cursor-pointer font-medium"
+                      : "text-muted-foreground"
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleAuthorClick()
+                  }}
+                >
+                  {post.show_author && post.author_name ? post.author_name : "Anonymous"}
+                </span>
+                <VerificationBadge isVerified={authorIsVerified} size="sm" />
+              </div>
             </div>
           </CardHeader>
 
