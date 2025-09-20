@@ -65,12 +65,12 @@ export function CommunityCommentsSection({
         currentUserId = user?.id
       }
       
-      // Fetch comments with author data using the correct foreign key reference
+      // Use the exact same query structure as in the working action.ts
       const { data: commentsData, error } = await supabase
         .from("community_comments")
         .select(`
           *,
-          author:users!author_id(
+          users!community_comments_author_id_fkey(
             id,
             display_name,
             full_name,
@@ -80,7 +80,7 @@ export function CommunityCommentsSection({
         `)
         .eq("post_id", postId)
         .eq("is_approved", true)
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: true })
 
       if (error) {
         console.error("Error fetching comments:", error)
@@ -102,22 +102,21 @@ export function CommunityCommentsSection({
         userLikes = likesData?.map(l => l.comment_id) || []
       }
 
-      // Transform the data to match the expected interface
+      // Transform the data exactly as in the working action.ts
       const transformedComments = (commentsData || []).map(comment => ({
         id: comment.id,
         content: comment.content,
         author_name: comment.show_author 
-          ? (comment.author?.display_name || comment.author?.full_name || "Anonymous")
+          ? (comment.users?.display_name || comment.users?.full_name || "Anonymous")
           : "Anonymous",
         author_id: comment.author_id,
         show_author: comment.show_author,
         like_count: comment.like_count || 0,
         created_at: comment.created_at,
         parent_id: comment.parent_id,
-        author_profile_image: comment.author?.profile_image || null,
-        author_is_verified: comment.author?.is_verified || false,
-        user_has_liked: userLikes.includes(comment.id),
-        author: comment.author
+        author_profile_image: comment.users?.profile_image || null,
+        author_is_verified: comment.users?.is_verified || false,
+        user_has_liked: userLikes.includes(comment.id)
       }))
 
       console.log("Transformed comments:", transformedComments) // Debug log
