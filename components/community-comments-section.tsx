@@ -58,14 +58,25 @@ export function CommunityCommentsSection({
     try {
       setLoading(true)
       
+      console.log("Fetching comments for postId:", postId)
+      
       // Get current user if authenticated
       let currentUserId = null
       if (isAuthenticated) {
         const { data: { user } } = await supabase.auth.getUser()
         currentUserId = user?.id
+        console.log("Current user ID:", currentUserId)
       }
       
-      // Use the exact same query structure as in the working action.ts
+      // First, let's try a simple query without joins to see if comments exist
+      const { data: simpleCommentsData, error: simpleError } = await supabase
+        .from("community_comments")
+        .select("*")
+        .eq("post_id", postId)
+
+      console.log("Simple query result:", { simpleCommentsData, simpleError })
+      
+      // Now try the full query
       const { data: commentsData, error } = await supabase
         .from("community_comments")
         .select(`
@@ -82,8 +93,33 @@ export function CommunityCommentsSection({
         .eq("is_approved", true)
         .order("created_at", { ascending: true })
 
+      console.log("Full query result:", { commentsData, error })
+
       if (error) {
         console.error("Error fetching comments:", error)
+        // If the join fails, fall back to simple query
+        if (simpleCommentsData && !simpleError) {
+          console.log("Using simple query fallback")
+          const transformedComments = (simpleCommentsData || [])
+            .filter(comment => comment.is_approved === true)
+            .map(comment => ({
+              id: comment.id,
+              content: comment.content,
+              author_name: comment.show_author ? (comment.author_name || "Anonymous") : "Anonymous",
+              author_id: comment.author_id,
+              show_author: comment.show_author,
+              like_count: comment.like_count || 0,
+              created_at: comment.created_at,
+              parent_id: comment.parent_id,
+              author_profile_image: null,
+              author_is_verified: false,
+              user_has_liked: false
+            }))
+
+          setComments(transformedComments)
+          const rootComments = transformedComments.filter(c => !c.parent_id)
+          setCommentCount(rootComments.length)
+        }
         return
       }
 
