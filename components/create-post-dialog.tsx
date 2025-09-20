@@ -135,9 +135,18 @@ function CreatePostForm({ onSuccess }: { onSuccess: () => void }) {
       formData.append("tags", tags.trim())
       formData.append("showAuthor", showAuthor.toString())
 
+      // Ensure data URLs are properly formatted before sending
+      const cleanImageUrls = validImageUrls.map(url => {
+        // Make sure data URLs don't have any extra characters
+        if (url.startsWith('data:image/')) {
+          return url.trim();
+        }
+        return url;
+      });
+
       // Store URLs as JSON arrays instead of comma-separated strings
-      if (validImageUrls.length > 0) {
-        formData.append("imageUrls", JSON.stringify(validImageUrls))
+      if (cleanImageUrls.length > 0) {
+        formData.append("imageUrls", JSON.stringify(cleanImageUrls))
       }
 
       if (validVideoUrls.length > 0) {
