@@ -81,7 +81,7 @@ export function DailyFeatures() {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-foreground">Daily Features</h2>
-              <p className="text-muted-foreground">Discover amazing tools handpicked for today</p>
+{/*               <p className="text-muted-foreground">Discover amazing tools handpicked for today</p> */}
             </div>
           </div>
           <Button
