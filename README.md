@@ -54,7 +54,7 @@ A modern, responsive tool discovery platform built with Next.js 14, TypeScript, 
 
 ### 1. Clone the Repository
 \`\`\`bash
-git clone https://github.com/your-username/index-clone.git
+git clone https://github.com/Greatness0123/index-clone.git
 cd index-clone
 \`\`\`
 
@@ -221,6 +221,3 @@ If you encounter any issues or have questions:
 2. Create a new issue with detailed information
 3. Contact support at [vercel.com/help](https://vercel.com/help)
 
----
-
-**Continue building on [v0.app](https://v0.app/chat/projects/CmJTIyWEyOv)**
