@@ -1,7 +1,6 @@
 # Index - Tool Discovery Platform
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/grucocoda-7115s-projects/v0-index-clone)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/projects/CmJTIyWEyOv)
+[![Deployed on Vercel](https://index-tools.vercel.app)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-green?style=for-the-badge&logo=supabase)](https://supabase.com/)
@@ -9,8 +8,7 @@
 A modern, responsive tool discovery platform built with Next.js 14, TypeScript, and Supabase. Discover, submit, and review amazing tools across various categories with a beautiful, user-friendly interface.
 
 ## 🚀 Live Demo
-
-**[https://vercel.com/grucocoda-7115s-projects/v0-index-clone](https://vercel.com/grucocoda-7115s-projects/v0-index-clone)**
+**[https://index-tools.vercel.app)**
 
 ## ✨ Features
 
@@ -98,8 +96,8 @@ Run the SQL scripts in the `scripts/` folder to set up your database:
 
 \`\`\`bash
 # Run these scripts in your Supabase SQL editor in order:
-# 1. scripts/36-comprehensive-database-fixes.sql
-# 2. scripts/37-populate-missing-tool-images.sql
+ 1. scripts/36-comprehensive-database-fixes.sql
+ 2. scripts/37-populate-missing-tool-images.sql
 \`\`\`
 
 ### 5. Start Development Server
@@ -213,7 +211,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Built with [v0.app](https://v0.app) - AI-powered development platform
 - UI components from [shadcn/ui](https://ui.shadcn.com/)
 - Icons from [Lucide](https://lucide.dev/)
 - Database and auth by [Supabase](https://supabase.com/)
